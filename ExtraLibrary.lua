@@ -118,28 +118,6 @@ local function resolveImage(img)
     return s
 end
 
-local function addUIStroke(parentFrame, color, thickness, transparency, rotation)
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = color or Color3.fromRGB(40, 40, 40)
-    stroke.Thickness = thickness or 1
-    stroke.Transparency = transparency or 0.4
-    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    stroke.LineJoinMode = Enum.LineJoinMode.Round
-    stroke.Parent = parentFrame
-
-    local gradient = Instance.new("UIGradient")
-    gradient.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 1),
-        NumberSequenceKeypoint.new(0.15, 0),
-        NumberSequenceKeypoint.new(0.85, 0),
-        NumberSequenceKeypoint.new(1, 1)
-    })
-    gradient.Rotation = rotation or 0
-    gradient.Parent = stroke
-
-    return stroke
-end
-
 local function refreshFramesRegistry()
     table.clear(state.Frames)
     local targetParent = (p and p:FindFirstChild("PlayerGui")) or state.ScreenGui
@@ -236,8 +214,6 @@ local function initGUI()
     c1.CornerRadius = UDim.new(0, 9)
     c1.Parent = f1
 
-    local strokeF1 = addUIStroke(f1, Color3.fromRGB(50, 50, 60), 1, 0.35, 45)
-
     local sidebar = Instance.new("Frame")
     sidebar.Name = "SidebarContainer"
     sidebar.Size = UDim2.new(0, 151, 1, 0)
@@ -262,8 +238,6 @@ local function initGUI()
     local c2 = Instance.new("UICorner")
     c2.CornerRadius = UDim.new(0, 9)
     c2.Parent = f2
-
-    local strokeF2 = addUIStroke(f2, Color3.fromRGB(50, 50, 60), 1, 1, 45)
 
     local cf = Instance.new("Frame")
     cf.Name = "CornerFiller"
@@ -471,7 +445,6 @@ local function initGUI()
     local cardCorner = Instance.new("UICorner")
     cardCorner.CornerRadius = UDim.new(0, 8)
     cardCorner.Parent = profileCard
-    addUIStroke(profileCard, Color3.fromRGB(45, 45, 55), 1, 0.3, 0)
 
     local avatarImg = Instance.new("ImageLabel")
     avatarImg.Name = "PortAvatar"
@@ -548,7 +521,6 @@ local function initGUI()
     local c3 = Instance.new("UICorner")
     c3.CornerRadius = UDim.new(0, 9)
     c3.Parent = fone
-    addUIStroke(fone, Color3.fromRGB(45, 45, 55), 1, 0.4, 0)
 
     local cffone = Instance.new("Frame")
     cffone.Size = UDim2.new(1, 0, 0, 9)
@@ -626,9 +598,6 @@ local function initGUI()
         tweenBusy = true
 
         local targetWidth = isCollapsed and 651 or 500
-        local targetCfTransparency = isCollapsed and 0 or 1
-        local targetStrokeF2 = isCollapsed and 1 or 0.35
-        local targetStrokeF1 = isCollapsed and 0.35 or 1
 
         local curX = f1.Position.X.Offset
         local curY = f1.Position.Y.Offset
@@ -639,14 +608,10 @@ local function initGUI()
             Size = UDim2.new(0, targetWidth, 0, 450),
             Position = UDim2.new(0, targetX, 0, curY)
         })
-        local twCorner = ts:Create(cf, animInfo, {BackgroundTransparency = targetCfTransparency})
-        local twStrokeF1 = ts:Create(strokeF1, animInfo, {Transparency = targetStrokeF1})
-        local twStrokeF2 = ts:Create(strokeF2, animInfo, {Transparency = targetStrokeF2})
+        local twCorner = ts:Create(cf, animInfo, {BackgroundTransparency = targetWidth == 500 and 0 or 1})
 
         twFrame:Play()
         twCorner:Play()
-        twStrokeF1:Play()
-        twStrokeF2:Play()
 
         twFrame.Completed:Connect(function()
             isCollapsed = not isCollapsed
