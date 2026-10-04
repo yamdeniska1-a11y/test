@@ -64,13 +64,21 @@ local state = {
     LastCreatedTabId = nil,
     CurrentTabFrame = nil, 
     CurrentGroup = nil,
+    TabGridSettings = {},
     IsGrid = false
 }
 
-env = getgenv and getgenv() or _G
-env.net = function(isEnabled)
+local env = getgenv and getgenv() or _G
+
+local function setGridState(isEnabled)
     state.IsGrid = isEnabled
+    if state.LastCreatedTabId then
+        state.TabGridSettings[state.LastCreatedTabId] = isEnabled
+    end
 end
+
+env.Grid = setGridState
+env.net = setGridState
 
 local function resolveImage(img)
     if not img then return nil end
@@ -1051,6 +1059,7 @@ function Lib:Tab(textStr, iconImg, callback)
     
     state.LastCreatedType = "Tab"
     state.LastCreatedTabId = formattedId
+    state.TabGridSettings[formattedId] = state.IsGrid
 end
 
 function Lib:Button(textStr, iconImg, callback)
@@ -1195,12 +1204,19 @@ function Lib:Text(textStr)
     }
 end
 
-local function CreateInternalGroup(tabFrame, titleText)
+local function CreateInternalGroup(tabFrame, titleText, tabId)
     if not tabFrame then return end
+
+    local isGridActive = false
+    if tabId and state.TabGridSettings[tabId] ~= nil then
+        isGridActive = state.TabGridSettings[tabId]
+    else
+        isGridActive = state.IsGrid
+    end
 
     local groupFrame = Instance.new("Frame")
     groupFrame.Name = "Group_" .. tostring(titleText)
-    groupFrame.Size = state.IsGrid and UDim2.new(0.5, -5, 0, 0) or UDim2.new(1, 0, 0, 0)
+    groupFrame.Size = isGridActive and UDim2.new(0.5, -5, 0, 0) or UDim2.new(1, 0, 0, 0)
     groupFrame.AutomaticSize = Enum.AutomaticSize.Y
     groupFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
     groupFrame.BorderSizePixel = 0
@@ -1286,14 +1302,14 @@ local function CreateInternalGroup(tabFrame, titleText)
 end
 
 function Lib:Group(titleText)
-    CreateInternalGroup(state.CurrentTabFrame, titleText)
+    CreateInternalGroup(state.CurrentTabFrame, titleText, state.LastCreatedTabId)
 end
 
 for i = 1, 50 do
     Lib["Group" .. i] = function(self, titleText)
         local targetTabId = state.CurrentSectionTabIds[i]
         local targetTabFrame = targetTabId and state.Frames["F" .. targetTabId] or state.CurrentTabFrame
-        CreateInternalGroup(targetTabFrame, titleText)
+        CreateInternalGroup(targetTabFrame, titleText, targetTabId)
     end
 end
 
