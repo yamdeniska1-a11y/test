@@ -67,17 +67,32 @@ local state = {
     IsGrid = false
 }
 
-local env = getgenv and getgenv() or _G
-
 local function setGrid(val)
-    state.IsGrid = val
+    state.IsGrid = (val == true)
     if state.LastCreatedTabId then
-        state.TabGridSettings[state.LastCreatedTabId] = val
+        state.TabGridSettings[state.LastCreatedTabId] = state.IsGrid
     end
 end
 
-env.Grid = setGrid
-env.net = setGrid
+-- Регистрируем во все возможные глобальные окружения
+_G.Grid = setGrid
+_G.net = setGrid
+if getgenv then
+    getgenv().Grid = setGrid
+    getgenv().net = setGrid
+end
+if getfenv then
+    pcall(function()
+        local env = getfenv(0)
+        env.Grid = setGrid
+        env.net = setGrid
+    end)
+    pcall(function()
+        local callerEnv = getfenv(2)
+        callerEnv.Grid = setGrid
+        callerEnv.net = setGrid
+    end)
+end
 
 local function resolveImage(img)
     if not img then return nil end
