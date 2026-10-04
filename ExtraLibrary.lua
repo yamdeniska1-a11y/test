@@ -462,7 +462,7 @@ local function initGUI()
     avatarImg.AnchorPoint = Vector2.new(0, 0.5)
     avatarImg.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
     avatarImg.BorderSizePixel = 0
-    avatarImg.ScaleType = Enum.ScaleType.Fit
+    avatarImg.ScaleType = Enum.ScaleType.Crop
     avatarImg.ZIndex = 4
     avatarImg.Parent = profileCard
 
@@ -612,6 +612,7 @@ local function initGUI()
         local targetCfTransparency = isCollapsed and 0 or 1
         local targetStrokeF2 = isCollapsed and 1 or 0.35
         local targetStrokeF1 = isCollapsed and 0.35 or 1
+        local targetCornerRadius = isCollapsed and UDim.new(0, 9) or UDim.new(0, 0)
 
         local curX = f1.Position.X.Offset
         local curY = f1.Position.Y.Offset
@@ -622,12 +623,18 @@ local function initGUI()
             Size = UDim2.new(0, targetWidth, 0, 450),
             Position = UDim2.new(0, targetX, 0, curY)
         })
-        local twCorner = ts:Create(cf, animInfo, {BackgroundTransparency = targetCfTransparency})
+        local twCorner = ts:Create(c1, animInfo, {CornerRadius = targetCornerRadius})
+        local twCorner2 = ts:Create(c2, animInfo, {CornerRadius = targetCornerRadius})
+        local twCornerCf = ts:Create(c3, animInfo, {CornerRadius = targetCornerRadius})
+        local twCf = ts:Create(cf, animInfo, {BackgroundTransparency = targetCfTransparency})
         local twStrokeF1 = ts:Create(strokeF1, animInfo, {Transparency = targetStrokeF1})
         local twStrokeF2 = ts:Create(strokeF2, animInfo, {Transparency = targetStrokeF2})
 
         twFrame:Play()
         twCorner:Play()
+        twCorner2:Play()
+        twCornerCf:Play()
+        twCf:Play()
         twStrokeF1:Play()
         twStrokeF2:Play()
 
