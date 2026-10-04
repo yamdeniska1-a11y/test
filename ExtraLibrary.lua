@@ -83,7 +83,7 @@ local function ApplyNetEffect(parentFrame)
 
     for i = 1, numParticles do
         local dot = Instance.new("Frame")
-        dot.Size = UDim2.new(0, 3, 0, 3)
+        dot.Size = UDim2.new(0, 2, 0, 2)
         dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
         dot.BorderSizePixel = 0
         dot.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -154,27 +154,14 @@ env.net = function(isEnabled)
     local currentType = state.LastCreatedType
     local currentTabId = state.LastCreatedTabId
     
-    task.spawn(function()
-        if currentType == "Section" then
-            while not state.Window002 do task.wait(0.1) end
-            ApplyNetEffect(state.Window002)
-        elseif currentType == "Tab" and currentTabId then
-            local targetName = "F" .. currentTabId
-            local targetFrame = nil
-            
-            for i = 1, 50 do
-                if state.Frames and state.Frames[targetName] then
-                    targetFrame = state.Frames[targetName]
-                    break
-                end
-                task.wait(0.1)
-            end
-            
-            if targetFrame then
-                ApplyNetEffect(targetFrame)
-            end
+    -- Применяем сетку только к окну вкладки, никакого глобального фона
+    if currentType == "Tab" and currentTabId then
+        local targetName = "F" .. currentTabId
+        local targetFrame = state.Frames[targetName]
+        if targetFrame then
+            ApplyNetEffect(targetFrame)
         end
-    end)
+    end
 end
 
 local function resolveImage(img)
@@ -266,7 +253,6 @@ local function switchTargetFrame(targetNumStr)
     state.CurrentActiveId = targetNumStr
     local targetName = "F" .. targetNumStr
 
-    refreshFramesRegistry()
     for _, f in pairs(state.Frames) do f.Visible = false end
 
     local tf = state.Frames[targetName]
@@ -991,6 +977,22 @@ function Lib:Tab(textStr, iconImg, callback)
         curSec.FirstCallback = callback
     end
 
+    -- АВТОМАТИЧЕСКОЕ СОЗДАНИЕ ОКНА ДЛЯ ВЫБРАННОЙ ВКЛАДКИ
+    local targetName = "F" .. formattedId
+    if not state.Frames[targetName] then
+        local targetFrame = Instance.new("Frame")
+        targetFrame.Name = targetName
+        targetFrame.Size = UDim2.new(1, 0, 1, -27)
+        targetFrame.Position = UDim2.new(0, 0, 0, 27)
+        targetFrame.BackgroundTransparency = 1
+        targetFrame.BorderSizePixel = 0
+        targetFrame.Visible = false
+        if state.Window002 then
+            targetFrame.Parent = state.Window002
+        end
+        state.Frames[targetName] = targetFrame
+    end
+
     local subLine = Instance.new("Frame")
     subLine.Name = "SubLine_" .. formattedId
     subLine.BackgroundTransparency = 1
@@ -1109,23 +1111,20 @@ function Lib:Tab(textStr, iconImg, callback)
         curSec.Frame.Size = UDim2.new(1, 0, 0, targetOpen)
     end
 
+    -- Логика Lib:Sidebar(true) - Выбираем вкладку без открытия секции
     if state.OpenFirst and not state.ScheduledAutoSelect then
         state.ScheduledAutoSelect = true
         task.delay(0.1, function()
+            switchTargetFrame("001") -- делает кнопку нажатой и открывает ее невидимое окно F001
             local firstSec = state.Sections[1]
-            if firstSec and firstSec.SetExpanded then
-                firstSec.SetExpanded(true, true)
-                switchTargetFrame("001")
-                if firstSec.FirstCallback then
-                    task.spawn(firstSec.FirstCallback)
-                end
+            if firstSec and firstSec.FirstCallback then
+                task.spawn(firstSec.FirstCallback)
             end
         end)
     end
     
     state.LastCreatedType = "Tab"
     state.LastCreatedTabId = formattedId
-
 end
 
 function Lib:Button(textStr, iconImg, callback)
