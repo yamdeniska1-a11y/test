@@ -52,6 +52,8 @@ local state = {
     MiniButtons = {},
     Frames = {},
     Sections = {},
+    SectionTabMapping = {},
+    GlobalTabs = {},
     LastExpandedClose = nil,
     CurrentSection = nil,
     GlobalTabCount = 0,
@@ -68,13 +70,13 @@ local state = {
 }
 
 local function setGrid(val)
-    state.IsGrid = (val == true)
+    local isEnabled = (val == true)
+    state.IsGrid = isEnabled
     if state.LastCreatedTabId then
-        state.TabGridSettings[state.LastCreatedTabId] = state.IsGrid
+        state.TabGridSettings[state.LastCreatedTabId] = isEnabled
     end
 end
 
--- Регистрируем во все возможные глобальные окружения
 _G.Grid = setGrid
 _G.net = setGrid
 if getgenv then
@@ -83,14 +85,14 @@ if getgenv then
 end
 if getfenv then
     pcall(function()
-        local env = getfenv(0)
-        env.Grid = setGrid
-        env.net = setGrid
+        local caller = getfenv(2)
+        caller.Grid = setGrid
+        caller.net = setGrid
     end)
     pcall(function()
-        local callerEnv = getfenv(2)
-        callerEnv.Grid = setGrid
-        callerEnv.net = setGrid
+        local rootEnv = getfenv(0)
+        rootEnv.Grid = setGrid
+        rootEnv.net = setGrid
     end)
 end
 
@@ -902,6 +904,7 @@ function Lib:Tab(textStr, iconImg, callback)
 
     local formattedId = string.format("%03d", state.GlobalTabCount)
     table.insert(curSec.TabIds, formattedId)
+    table.insert(state.GlobalTabs, formattedId)
 
     if not curSec.FirstTabId then
         curSec.FirstTabId = formattedId
@@ -1318,8 +1321,7 @@ end
 
 for i = 1, 50 do
     Lib["Group" .. i] = function(self, titleText)
-        local curSec = state.CurrentSection
-        local targetTabId = (curSec and curSec.TabIds[i]) or string.format("%03d", i)
+        local targetTabId = state.GlobalTabs[i] or string.format("%03d", i)
         local targetTabFrame = state.Frames["F" .. targetTabId] or state.CurrentTabFrame
         return CreateInternalGroup(targetTabFrame, titleText, targetTabId)
     end
