@@ -18,23 +18,17 @@ local UI = {
     CardHeight = 22,
     SubPadding = 5,
     MainPadding = 6,
-
     HeaderColor = Color3.fromRGB(150, 150, 150),
     SubIdleColor = Color3.fromRGB(140, 140, 140),
     SubActiveColor = Color3.fromRGB(255, 255, 255),
-
     SubHoverBg = Color3.fromRGB(22, 22, 22),
     SubActiveBg = Color3.fromRGB(26, 26, 26),
-
     StrokeIdle = Color3.fromRGB(0, 0, 0),
     StrokeHover = Color3.fromRGB(40, 40, 40),
     StrokeActive = Color3.fromRGB(70, 70, 70),
-
     AccentColor = Color3.fromRGB(255, 255, 255),
-
     IconSize = 14,
     IconGap = 8,
-
     HeaderFont = Enum.Font.GothamBold,
     HeaderSize = 13,
     ItemFont = Enum.Font.GothamMedium,
@@ -58,7 +52,7 @@ local state = {
     MiniButtons = {},
     Frames = {},
     Sections = {},
-    CurrentSectionTabIds = {}, -- Для изоляции вкладок по секциям
+    CurrentSectionTabIds = {},
     LastExpandedClose = nil,
     CurrentSection = nil,
     GlobalTabCount = 0,
@@ -70,102 +64,12 @@ local state = {
     LastCreatedTabId = nil,
     CurrentTabFrame = nil, 
     CurrentGroup = nil,
-    IsGrid = false -- Хранит состояние сетки (1 или 2 окна)
+    IsGrid = false
 }
-
-local function ApplyNetEffect(parentFrame)
-    if parentFrame:FindFirstChild("NetEffectFolder") then return end
-
-    local netFolder = Instance.new("Folder")
-    netFolder.Name = "NetEffectFolder"
-    netFolder.Parent = parentFrame
-
-    local particles = {}
-    local connections = {}
-    local numParticles = 25
-    local maxDistance = 90
-
-    for i = 1, numParticles do
-        local dot = Instance.new("Frame")
-        dot.Size = UDim2.new(0, 2, 0, 2)
-        dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        dot.BorderSizePixel = 0
-        dot.AnchorPoint = Vector2.new(0.5, 0.5)
-        dot.BackgroundTransparency = 0.3
-        dot.ZIndex = parentFrame.ZIndex or 1
-        
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(1, 0)
-        corner.Parent = dot
-        dot.Parent = netFolder
-        
-        table.insert(particles, {
-            gui = dot,
-            x = math.random(0, 500),
-            y = math.random(0, 400),
-            vx = (math.random() - 0.5) * 1.5,
-            vy = (math.random() - 0.5) * 1.5
-        })
-    end
-
-    rs.RenderStepped:Connect(function()
-        if not parentFrame.Visible or not parentFrame.Parent then return end
-        
-        local w, h = parentFrame.AbsoluteSize.X, parentFrame.AbsoluteSize.Y
-        if w == 0 or h == 0 then return end
-
-        for _, line in ipairs(connections) do line:Destroy() end
-        table.clear(connections)
-
-        for _, p in ipairs(particles) do
-            p.x = p.x + p.vx
-            p.y = p.y + p.vy
-
-            if p.x <= 0 or p.x >= w then p.vx = -p.vx end
-            if p.y <= 0 or p.y >= h then p.vy = -p.vy end
-
-            p.gui.Position = UDim2.new(0, p.x, 0, p.y)
-        end
-
-        for i = 1, #particles do
-            for j = i + 1, #particles do
-                local p1, p2 = particles[i], particles[j]
-                local dx, dy = p2.x - p1.x, p2.y - p1.y
-                local dist = math.sqrt(dx*dx + dy*dy)
-
-                if dist < maxDistance then
-                    local line = Instance.new("Frame")
-                    line.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-                    line.BorderSizePixel = 0
-                    line.AnchorPoint = Vector2.new(0.5, 0.5)
-                    line.Size = UDim2.new(0, dist, 0, 1)
-                    line.Position = UDim2.new(0, p1.x + dx/2, 0, p1.y + dy/2)
-                    line.Rotation = math.deg(math.atan2(dy, dx))
-                    line.BackgroundTransparency = 0.4 + (0.6 * (dist / maxDistance))
-                    line.ZIndex = parentFrame.ZIndex or 1
-                    line.Parent = netFolder
-                    table.insert(connections, line)
-                end
-            end
-        end
-    end)
-end
 
 local env = getgenv and getgenv() or _G
 env.net = function(isEnabled)
-    state.IsGrid = isEnabled -- Управляет шириной новых групп
-    if not isEnabled then return end
-    
-    local currentType = state.LastCreatedType
-    local currentTabId = state.LastCreatedTabId
-    
-    if currentType == "Tab" and currentTabId then
-        local targetName = "F" .. currentTabId
-        local targetFrame = state.Frames[targetName]
-        if targetFrame then
-            ApplyNetEffect(targetFrame)
-        end
-    end
+    state.IsGrid = isEnabled
 end
 
 local function resolveImage(img)
@@ -223,7 +127,6 @@ local function refreshFramesRegistry()
     for _, d in ipairs(targetParent:GetDescendants()) do
         if d:IsA("GuiObject") and d.Name:match("^F%d%d%d$") then
             state.Frames[d.Name] = d
-
             if state.Window002 and d.Parent ~= state.Window002 then
                 d.Parent = state.Window002
                 d.Position = UDim2.new(0, 0, 0, 27)
@@ -818,7 +721,7 @@ function Lib:Section(titleText, iconImg)
     local sf = state.SidebarScroll
     if not sf then return end
 
-    state.CurrentSectionTabIds = {} -- Очищаем список табов для новой секции
+    state.CurrentSectionTabIds = {}
 
     local order = #state.Sections + 1
     local entry = Instance.new("Frame")
@@ -978,7 +881,7 @@ function Lib:Tab(textStr, iconImg, callback)
     curSec.SubCount = curSec.SubCount + 1
 
     local formattedId = string.format("%03d", state.GlobalTabCount)
-    table.insert(state.CurrentSectionTabIds, formattedId) -- Запоминаем табы конкретно для этой секции
+    table.insert(state.CurrentSectionTabIds, formattedId)
 
     if not curSec.FirstTabId then
         curSec.FirstTabId = formattedId
@@ -997,7 +900,6 @@ function Lib:Tab(textStr, iconImg, callback)
         targetFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
         targetFrame.Visible = false
         
-        -- Сетка включена для всех вкладок (горизонтальное заполнение)
         local layout = Instance.new("UIListLayout")
         layout.Padding = UDim.new(0, 10)
         layout.FillDirection = Enum.FillDirection.Horizontal
@@ -1298,7 +1200,6 @@ local function CreateInternalGroup(tabFrame, titleText)
 
     local groupFrame = Instance.new("Frame")
     groupFrame.Name = "Group_" .. tostring(titleText)
-    -- Сетка работает здесь: 50% ширины если net(true), иначе 100%
     groupFrame.Size = state.IsGrid and UDim2.new(0.5, -5, 0, 0) or UDim2.new(1, 0, 0, 0)
     groupFrame.AutomaticSize = Enum.AutomaticSize.Y
     groupFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 18)
@@ -1366,7 +1267,6 @@ end
 
 for i = 1, 50 do
     Lib["Group" .. i] = function(self, titleText)
-        -- Теперь берём таб из текущей секции, а не глобально
         local targetTabId = state.CurrentSectionTabIds[i]
         local targetTabFrame = targetTabId and state.Frames["F" .. targetTabId] or state.CurrentTabFrame
         CreateInternalGroup(targetTabFrame, titleText)
