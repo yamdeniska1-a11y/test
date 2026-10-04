@@ -1,16 +1,16 @@
 local Lib = {}
 
-local ts = game:GetService("TweenService")
-local uis = game:GetService("UserInputService")
-local gs = game:GetService("GuiService")
-local rs = game:GetService("RunService")
-local cam = workspace.CurrentCamera
-local playersService = game:GetService("Players")
-local p = playersService.LocalPlayer
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local GuiService = game:GetService("GuiService")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
-local FIXED_ARROW_ID = "rbxassetid://101007429951147"
-local TWEEN_INFO = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local HOVER_INFO = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local ArrowAssetId = "rbxassetid://101007429951147"
+local DefaultTweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local HoverTweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 local UI = {
     HeaderHeight = 26,
@@ -191,7 +191,7 @@ local function initGUI()
     state.ScreenGui = s
 
     if not state.GuiToggleConn then
-        state.GuiToggleConn = uis.InputBegan:Connect(function(input, gp)
+        state.GuiToggleConn = UserInputService.InputBegan:Connect(function(input, gp)
             if not gp and input.KeyCode == Enum.KeyCode.LeftAlt then
                 if state.ScreenGui then
                     state.ScreenGui.Enabled = not state.ScreenGui.Enabled
@@ -200,7 +200,7 @@ local function initGUI()
         end)
     end
 
-    local screenSize = (s and s.AbsoluteSize) or cam.ViewportSize
+    local screenSize = (s and s.AbsoluteSize) or Camera.ViewportSize
     local startX = math.round((screenSize.X - 651) / 2)
     local startY = math.round((screenSize.Y - 450) / 2)
 
@@ -490,7 +490,7 @@ local function initGUI()
     nickLabel.Position = UDim2.new(0, 44, 0, 21)
     nickLabel.BackgroundTransparency = 1
     nickLabel.Font = Enum.Font.GothamBold
-    nickLabel.Text = (p and p.Name) or "Player"
+    nickLabel.Text = (LocalPlayer and LocalPlayer.Name) or "Player"
     nickLabel.TextColor3 = Color3.fromRGB(240, 240, 245)
     nickLabel.TextScaled = true
     nickLabel.TextTruncate = Enum.TextTruncate.AtEnd
@@ -506,8 +506,8 @@ local function initGUI()
     task.spawn(function()
         pcall(function()
             local success, thumbnail = pcall(function()
-                return playersService:GetUserThumbnailAsync(
-                    p.UserId,
+                return Players:GetUserThumbnailAsync(
+                    LocalPlayer.UserId,
                     Enum.ThumbnailType.HeadShot,
                     Enum.ThumbnailSize.Size150x150
                 )
@@ -619,16 +619,16 @@ local function initGUI()
         local rightEdge = curX + f1.Size.X.Offset
         local targetX = math.max(0, rightEdge - targetWidth)
 
-        local twFrame = ts:Create(f1, animInfo, {
+        local twFrame = TweenService:Create(f1, animInfo, {
             Size = UDim2.new(0, targetWidth, 0, 450),
             Position = UDim2.new(0, targetX, 0, curY)
         })
-        local twCorner = ts:Create(c1, animInfo, {CornerRadius = targetCornerRadius})
-        local twCorner2 = ts:Create(c2, animInfo, {CornerRadius = targetCornerRadius})
-        local twCornerCf = ts:Create(c3, animInfo, {CornerRadius = targetCornerRadius})
-        local twCf = ts:Create(cf, animInfo, {BackgroundTransparency = targetCfTransparency})
-        local twStrokeF1 = ts:Create(strokeF1, animInfo, {Transparency = targetStrokeF1})
-        local twStrokeF2 = ts:Create(strokeF2, animInfo, {Transparency = targetStrokeF2})
+        local twCorner = TweenService:Create(c1, animInfo, {CornerRadius = targetCornerRadius})
+        local twCorner2 = TweenService:Create(c2, animInfo, {CornerRadius = targetCornerRadius})
+        local twCornerCf = TweenService:Create(c3, animInfo, {CornerRadius = targetCornerRadius})
+        local twCf = TweenService:Create(cf, animInfo, {BackgroundTransparency = targetCfTransparency})
+        local twStrokeF1 = TweenService:Create(strokeF1, animInfo, {Transparency = targetStrokeF1})
+        local twStrokeF2 = TweenService:Create(strokeF2, animInfo, {Transparency = targetStrokeF2})
 
         twFrame:Play()
         twCorner:Play()
@@ -680,8 +680,8 @@ local function initGUI()
         local targetX = math.round(dragStartFrame.X + delta.X)
         local targetY = math.round(dragStartFrame.Y + delta.Y)
 
-        local scrSize = (s and s.AbsoluteSize) or cam.ViewportSize
-        local inset = gs:GetGuiInset()
+        local scrSize = (s and s.AbsoluteSize) or Camera.ViewportSize
+        local inset = GuiService:GetGuiInset()
         local screenW = scrSize.X
         local screenH = scrSize.Y - inset.Y
 
@@ -703,13 +703,13 @@ local function initGUI()
             local moveConn
             local endConn
 
-            moveConn = uis.InputChanged:Connect(function(moveInput)
+            moveConn = UserInputService.InputChanged:Connect(function(moveInput)
                 if (moveInput.UserInputType == Enum.UserInputType.MouseMovement or moveInput.UserInputType == Enum.UserInputType.Touch) and isDragging then
                     updateDrag(moveInput)
                 end
             end)
 
-            endConn = uis.InputEnded:Connect(function(endInput)
+            endConn = UserInputService.InputEnded:Connect(function(endInput)
                 if endInput.UserInputType == Enum.UserInputType.MouseButton1 or endInput.UserInputType == Enum.UserInputType.Touch then
                     isDragging = false
                     if moveConn then moveConn:Disconnect() end
@@ -783,7 +783,7 @@ function Lib:Section(titleText, iconImg)
     arrow.AnchorPoint = Vector2.new(0.5, 0.5)
     arrow.Position = UDim2.new(1, -8, 0.5, 0)
     arrow.Size = UDim2.new(0, 10, 0, 10)
-    arrow.Image = FIXED_ARROW_ID
+    arrow.Image = ArrowAssetId
     arrow.ImageColor3 = UI.HeaderColor
     arrow.Rotation = 0
     arrow.Parent = hl
@@ -845,8 +845,8 @@ function Lib:Section(titleText, iconImg)
             arrow.Rotation = rot
             entry.ClipsDescendants = not sectionObj.IsExpanded
         else
-            local tw = ts:Create(entry, TWEEN_INFO, {Size = sz})
-            ts:Create(arrow, TWEEN_INFO, {Rotation = rot}):Play()
+            local tw = TweenService:Create(entry, DefaultTweenInfo, {Size = sz})
+            TweenService:Create(arrow, DefaultTweenInfo, {Rotation = rot}):Play()
             tw:Play()
             if sectionObj.IsExpanded then
                 tw.Completed:Connect(function()
@@ -1027,14 +1027,14 @@ function Lib:Tab(textStr, iconImg, callback)
     btn.MouseEnter:Connect(function()
         if state.CurrentActiveId == formattedId then return end
         card.BackgroundColor3 = UI.SubHoverBg
-        ts:Create(card, HOVER_INFO, {BackgroundTransparency = 0.15}):Play()
-        ts:Create(stroke, HOVER_INFO, {Transparency = 0.4, Color = UI.StrokeHover}):Play()
+        TweenService:Create(card, HoverTweenInfo, {BackgroundTransparency = 0.15}):Play()
+        TweenService:Create(stroke, HoverTweenInfo, {Transparency = 0.4, Color = UI.StrokeHover}):Play()
     end)
 
     btn.MouseLeave:Connect(function()
         if state.CurrentActiveId == formattedId then return end
-        ts:Create(card, HOVER_INFO, {BackgroundTransparency = 1}):Play()
-        ts:Create(stroke, HOVER_INFO, {Transparency = 1}):Play()
+        TweenService:Create(card, HoverTweenInfo, {BackgroundTransparency = 1}):Play()
+        TweenService:Create(stroke, HoverTweenInfo, {Transparency = 1}):Play()
     end)
 
     btn.MouseButton1Click:Connect(function()
@@ -1143,19 +1143,19 @@ function Lib:Button(textStr, iconImg, callback)
     btn.Parent = card
 
     btn.MouseEnter:Connect(function()
-        ts:Create(card, HOVER_INFO, {BackgroundTransparency = 0.2}):Play()
-        ts:Create(stroke, HOVER_INFO, {Transparency = 0.4, Color = UI.StrokeHover}):Play()
+        TweenService:Create(card, HoverTweenInfo, {BackgroundTransparency = 0.2}):Play()
+        TweenService:Create(stroke, HoverTweenInfo, {Transparency = 0.4, Color = UI.StrokeHover}):Play()
     end)
 
     btn.MouseLeave:Connect(function()
-        ts:Create(card, HOVER_INFO, {BackgroundTransparency = 1}):Play()
-        ts:Create(stroke, HOVER_INFO, {Transparency = 1}):Play()
+        TweenService:Create(card, HoverTweenInfo, {BackgroundTransparency = 1}):Play()
+        TweenService:Create(stroke, HoverTweenInfo, {Transparency = 1}):Play()
     end)
 
     btn.MouseButton1Click:Connect(function()
-        ts:Create(card, TweenInfo.new(0.08), {BackgroundTransparency = 0}):Play()
+        TweenService:Create(card, TweenInfo.new(0.08), {BackgroundTransparency = 0}):Play()
         task.delay(0.08, function()
-            ts:Create(card, TweenInfo.new(0.15), {BackgroundTransparency = 0.2}):Play()
+            TweenService:Create(card, TweenInfo.new(0.15), {BackgroundTransparency = 0.2}):Play()
         end)
         if callback then
             task.spawn(callback)
@@ -1309,7 +1309,7 @@ function Lib:Group(titleText)
 end
 
 for i = 1, 50 do
-    Lib["Group" .. i] = function(self, titleText)
+    Lib["Group" + i] = function(self, titleText)
         local curSec = state.CurrentSection
         local targetTabId = nil
         
@@ -1325,7 +1325,7 @@ for i = 1, 50 do
         end
         
         targetTabId = targetTabId or string.format("%03d", i)
-        local targetTabFrame = state.Frames["F" .. targetTabId] or state.CurrentTabFrame
+        local targetTabFrame = state.Frames["F" + targetTabId] or state.CurrentTabFrame
         return CreateInternalGroup(targetTabFrame, titleText, targetTabId)
     end
 end
