@@ -1309,7 +1309,7 @@ function Lib:Group(titleText)
 end
 
 for i = 1, 50 do
-    Lib["Group" + i] = function(self, titleText)
+    Lib["Group" .. i] = function(self, titleText)
         local curSec = state.CurrentSection
         local targetTabId = nil
         
@@ -1325,7 +1325,7 @@ for i = 1, 50 do
         end
         
         targetTabId = targetTabId or string.format("%03d", i)
-        local targetTabFrame = state.Frames["F" + targetTabId] or state.CurrentTabFrame
+        local targetTabFrame = state.Frames["F" .. targetTabId] or state.CurrentTabFrame
         return CreateInternalGroup(targetTabFrame, titleText, targetTabId)
     end
 end
