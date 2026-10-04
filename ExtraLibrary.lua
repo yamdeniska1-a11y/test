@@ -34,10 +34,6 @@ local UI = {
     ItemFont = Enum.Font.GothamMedium,
     ItemFontActive = Enum.Font.GothamBold,
     ItemSize = 12,
-    -- Новые цвета
-    Window002Bg = Color3.fromRGB(10, 10, 12),
-    ContentHeaderBg = Color3.fromRGB(13, 13, 13),
-    BottomBarBg = Color3.fromRGB(13, 13, 13),
 }
 
 local HEADER_LINE_X = 2
@@ -66,12 +62,12 @@ local state = {
     GuiToggleConn = nil,
     LastCreatedType = nil,
     LastCreatedTabId = nil,
-    CurrentTabFrame = nil,
+    CurrentTabFrame = nil, 
     CurrentGroup = nil,
     IsGrid = false
 }
 
-local env = getgenv and getgenv() or _G
+env = getgenv and getgenv() or _G
 env.net = function(isEnabled)
     state.IsGrid = isEnabled
 end
@@ -236,7 +232,7 @@ local function initGUI()
     f2.Name = "Window002"
     f2.Size = UDim2.new(0, 500, 0, 450)
     f2.Position = UDim2.new(1, -500, 0, 0)
-    f2.BackgroundColor3 = UI.Window002Bg
+    f2.BackgroundColor3 = Color3.fromRGB(6, 6, 8)
     f2.BorderSizePixel = 0
     f2.ClipsDescendants = false
     f2.ZIndex = 50
@@ -249,47 +245,11 @@ local function initGUI()
 
     local strokeF2 = addUIStroke(f2, Color3.fromRGB(50, 50, 60), 1, 1, 45)
 
-    -- === Верхняя шапка окна контента (13,13,13) ===
-    local contentHeader = Instance.new("Frame")
-    contentHeader.Name = "ContentHeader"
-    contentHeader.Size = UDim2.new(1, 0, 0, 27)
-    contentHeader.Position = UDim2.new(0, 0, 0, 0)
-    contentHeader.BackgroundColor3 = UI.ContentHeaderBg
-    contentHeader.BorderSizePixel = 0
-    contentHeader.ZIndex = 51
-    contentHeader.Parent = f2
-
-    local contentHeaderCorner = Instance.new("UICorner")
-    contentHeaderCorner.CornerRadius = UDim.new(0, 9)
-    contentHeaderCorner.Parent = contentHeader
-
-    -- Квадратим нижние углы шапки (заливка того же цвета снизу)
-    local headerBottomSquare = Instance.new("Frame")
-    headerBottomSquare.Name = "BottomSquare"
-    headerBottomSquare.Size = UDim2.new(1, 0, 0, 9)
-    headerBottomSquare.Position = UDim2.new(0, 0, 1, -9)
-    headerBottomSquare.BackgroundColor3 = UI.ContentHeaderBg
-    headerBottomSquare.BorderSizePixel = 0
-    headerBottomSquare.ZIndex = 52
-    headerBottomSquare.Parent = contentHeader
-
-    -- === Corner filler (левая кромка окна контента) ===
-    -- Верхняя часть (под шапку)
-    local cfTop = Instance.new("Frame")
-    cfTop.Name = "CornerFillerTop"
-    cfTop.Size = UDim2.new(0, 9, 0, 27)
-    cfTop.Position = UDim2.new(0, 0, 0, 0)
-    cfTop.BackgroundColor3 = UI.ContentHeaderBg
-    cfTop.BorderSizePixel = 0
-    cfTop.ZIndex = 53
-    cfTop.Parent = f2
-
-    -- Основная часть (тело окна)
     local cf = Instance.new("Frame")
     cf.Name = "CornerFiller"
-    cf.Size = UDim2.new(0, 9, 1, -27)
-    cf.Position = UDim2.new(0, 0, 0, 27)
-    cf.BackgroundColor3 = UI.Window002Bg
+    cf.Size = UDim2.new(0, 9, 1, 0)
+    cf.Position = UDim2.new(0, 0, 0, 0)
+    cf.BackgroundColor3 = Color3.fromRGB(6, 6, 8)
     cf.BorderSizePixel = 0
     cf.BackgroundTransparency = 0
     cf.ZIndex = 50
@@ -560,7 +520,7 @@ local function initGUI()
     fone.Size = UDim2.new(0, 115, 0, 15)
     fone.AnchorPoint = Vector2.new(0.5, 0)
     fone.Position = UDim2.new(0.5, 0, 1, 0)
-    fone.BackgroundColor3 = UI.BottomBarBg
+    fone.BackgroundColor3 = Color3.fromRGB(6, 6, 8)
     fone.BorderSizePixel = 0
     fone.ZIndex = 60
     fone.Parent = f2
@@ -573,7 +533,7 @@ local function initGUI()
     local cffone = Instance.new("Frame")
     cffone.Size = UDim2.new(1, 0, 0, 9)
     cffone.Position = UDim2.new(0, 0, 0, 0)
-    cffone.BackgroundColor3 = UI.BottomBarBg
+    cffone.BackgroundColor3 = Color3.fromRGB(6, 6, 8)
     cffone.BorderSizePixel = 0
     cffone.ZIndex = 60
     cffone.Parent = fone
@@ -906,9 +866,9 @@ function Lib:Section(titleText, iconImg)
 
     table.insert(state.Sections, sectionObj)
     state.CurrentSection = sectionObj
-
+    
     state.LastCreatedType = "Section"
-
+    
     return sectionObj
 end
 
@@ -939,14 +899,14 @@ function Lib:Tab(textStr, iconImg, callback)
         targetFrame.ScrollBarThickness = 0
         targetFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
         targetFrame.Visible = false
-
+        
         local layout = Instance.new("UIListLayout")
         layout.Padding = UDim.new(0, 10)
         layout.FillDirection = Enum.FillDirection.Horizontal
         layout.Wraps = true
         layout.SortOrder = Enum.SortOrder.LayoutOrder
         layout.Parent = targetFrame
-
+        
         local padding = Instance.new("UIPadding")
         padding.PaddingTop = UDim.new(0, 5)
         padding.PaddingBottom = UDim.new(0, 10)
@@ -957,7 +917,7 @@ function Lib:Tab(textStr, iconImg, callback)
         end
         state.Frames[targetName] = targetFrame
     end
-
+    
     state.CurrentTabFrame = state.Frames[targetName]
 
     local subLine = Instance.new("Frame")
@@ -1088,7 +1048,7 @@ function Lib:Tab(textStr, iconImg, callback)
             end
         end)
     end
-
+    
     state.LastCreatedType = "Tab"
     state.LastCreatedTabId = formattedId
 end
@@ -1242,25 +1202,49 @@ local function CreateInternalGroup(tabFrame, titleText)
     groupFrame.Name = "Group_" .. tostring(titleText)
     groupFrame.Size = state.IsGrid and UDim2.new(0.5, -5, 0, 0) or UDim2.new(1, 0, 0, 0)
     groupFrame.AutomaticSize = Enum.AutomaticSize.Y
-    groupFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 18)
+    groupFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
     groupFrame.BorderSizePixel = 0
+    groupFrame.ClipsDescendants = true
     groupFrame.Parent = tabFrame
 
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 6)
     corner.Parent = groupFrame
 
+    addUIStroke(groupFrame, Color3.fromRGB(45, 45, 55), 1, 0.35, 45)
+
+    local headerTopBar = Instance.new("Frame")
+    headerTopBar.Name = "HeaderTopBar"
+    headerTopBar.Size = UDim2.new(1, 0, 0, 28)
+    headerTopBar.Position = UDim2.new(0, 0, 0, 0)
+    headerTopBar.BackgroundColor3 = Color3.fromRGB(13, 13, 13)
+    headerTopBar.BorderSizePixel = 0
+    headerTopBar.Parent = groupFrame
+
+    local topBarCorner = Instance.new("UICorner")
+    topBarCorner.CornerRadius = UDim.new(0, 6)
+    topBarCorner.Parent = headerTopBar
+
+    local bottomCover = Instance.new("Frame")
+    bottomCover.Name = "BottomCover"
+    bottomCover.Size = UDim2.new(1, 0, 0, 6)
+    bottomCover.Position = UDim2.new(0, 0, 1, -6)
+    bottomCover.BackgroundColor3 = Color3.fromRGB(13, 13, 13)
+    bottomCover.BorderSizePixel = 0
+    bottomCover.Parent = headerTopBar
+
     local header = Instance.new("TextLabel")
     header.Name = "Header"
-    header.Size = UDim2.new(1, -16, 0, 26)
-    header.Position = UDim2.new(0, 8, 0, 2)
+    header.Size = UDim2.new(1, -16, 1, 0)
+    header.Position = UDim2.new(0, 8, 0, 0)
     header.BackgroundTransparency = 1
     header.Font = Enum.Font.GothamMedium
     header.TextSize = 11
     header.TextColor3 = Color3.fromRGB(200, 200, 205)
     header.TextXAlignment = Enum.TextXAlignment.Left
-    header.Text = string.upper(tostring(titleText))
-    header.Parent = groupFrame
+    header.TextYAlignment = Enum.TextYAlignment.Center
+    header.Text = string.upper(tostring(titleText)) 
+    header.Parent = headerTopBar
 
     local topDividerLine = Instance.new("Frame")
     topDividerLine.Name = "TopHeaderDividerStroke"
@@ -1293,7 +1277,7 @@ local function CreateInternalGroup(tabFrame, titleText)
     layout.Padding = UDim.new(0, 6)
     layout.SortOrder = Enum.SortOrder.LayoutOrder
     layout.Parent = container
-
+    
     local padding = Instance.new("UIPadding")
     padding.PaddingBottom = UDim.new(0, 10)
     padding.Parent = groupFrame
