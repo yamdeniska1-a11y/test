@@ -65,6 +65,8 @@ local state = {
     Initialized = false,
     ScheduledAutoSelect = false,
     GuiToggleConn = nil,
+    LastCreatedType = nil,
+    LastCreatedTabId = nil,
 }
 
 local function ApplyNetEffect(parentFrame)
@@ -140,6 +142,36 @@ local function ApplyNetEffect(parentFrame)
                     line.Parent = netFolder
                     table.insert(connections, line)
                 end
+            end
+        end
+    end)
+end
+
+local env = getgenv and getgenv() or _G
+env.net = function(isEnabled)
+    if not isEnabled then return end
+    
+    local currentType = state.LastCreatedType
+    local currentTabId = state.LastCreatedTabId
+    
+    task.spawn(function()
+        if currentType == "Section" then
+            while not state.Window002 do task.wait(0.1) end
+            ApplyNetEffect(state.Window002)
+        elseif currentType == "Tab" and currentTabId then
+            local targetName = "F" .. currentTabId
+            local targetFrame = nil
+            
+            for i = 1, 50 do
+                if state.Frames and state.Frames[targetName] then
+                    targetFrame = state.Frames[targetName]
+                    break
+                end
+                task.wait(0.1)
+            end
+            
+            if targetFrame then
+                ApplyNetEffect(targetFrame)
             end
         end
     end)
@@ -939,19 +971,9 @@ function Lib:Section(titleText, iconImg)
 
     table.insert(state.Sections, sectionObj)
     state.CurrentSection = sectionObj
-
-    sectionObj.net = function(self, isEnabled)
-        if type(self) == "boolean" then isEnabled = self end
-        if not isEnabled then return sectionObj end
-        
-        task.spawn(function()
-            while not state.Window002 do task.wait(0.1) end
-            ApplyNetEffect(state.Window002)
-        end)
-        
-        return sectionObj
-    end
-
+    
+    state.LastCreatedType = "Section"
+    
     return sectionObj
 end
 
@@ -1100,33 +1122,10 @@ function Lib:Tab(textStr, iconImg, callback)
             end
         end)
     end
+    
+    state.LastCreatedType = "Tab"
+    state.LastCreatedTabId = formattedId
 
-    local tabObj = {}
-    tabObj.net = function(self, isEnabled)
-        if type(self) == "boolean" then isEnabled = self end
-        if not isEnabled then return tabObj end
-        
-        task.spawn(function()
-            local targetName = "F" .. formattedId
-            local targetFrame = nil
-            
-            for i = 1, 50 do
-                if state.Frames and state.Frames[targetName] then
-                    targetFrame = state.Frames[targetName]
-                    break
-                end
-                task.wait(0.1)
-            end
-            
-            if targetFrame then
-                ApplyNetEffect(targetFrame)
-            end
-        end)
-        
-        return tabObj
-    end
-
-    return tabObj
 end
 
 function Lib:Button(textStr, iconImg, callback)
