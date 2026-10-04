@@ -67,8 +67,8 @@ local state = {
 }
 
 local env = getgenv and getgenv() or _G
-env.net = function(isEnabled)
-    state.IsGrid = isEnabled
+env.Grid = function(isEnabled)
+    state.IsGrid = tostring(isEnabled) == "true" or isEnabled == true
 end
 
 local function resolveImage(img)
