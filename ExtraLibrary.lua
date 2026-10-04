@@ -1224,8 +1224,6 @@ local function CreateInternalGroup(tabFrame, titleText, tabId)
     corner.CornerRadius = UDim.new(0, 6)
     corner.Parent = groupFrame
 
-    addUIStroke(groupFrame, Color3.fromRGB(45, 45, 55), 1, 0.35, 45)
-
     local headerTopBar = Instance.new("Frame")
     headerTopBar.Name = "HeaderTopBar"
     headerTopBar.Size = UDim2.new(1, 0, 0, 28)
