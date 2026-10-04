@@ -67,6 +67,8 @@ local state = {
     GuiToggleConn = nil,
     LastCreatedType = nil,
     LastCreatedTabId = nil,
+    CurrentTabFrame = nil, 
+    CurrentGroup = nil,    
 }
 
 local function ApplyNetEffect(parentFrame)
@@ -154,7 +156,6 @@ env.net = function(isEnabled)
     local currentType = state.LastCreatedType
     local currentTabId = state.LastCreatedTabId
     
-    -- Применяем сетку только к окну вкладки, никакого глобального фона
     if currentType == "Tab" and currentTabId then
         local targetName = "F" .. currentTabId
         local targetFrame = state.Frames[targetName]
@@ -977,21 +978,35 @@ function Lib:Tab(textStr, iconImg, callback)
         curSec.FirstCallback = callback
     end
 
-    -- АВТОМАТИЧЕСКОЕ СОЗДАНИЕ ОКНА ДЛЯ ВЫБРАННОЙ ВКЛАДКИ
+    -- АВТОМАТИЧЕСКОЕ СОЗДАНИЕ ОКНА ДЛЯ ВЫБРАННОЙ ВКЛАДКИ (Теперь ScrollingFrame)
     local targetName = "F" .. formattedId
     if not state.Frames[targetName] then
-        local targetFrame = Instance.new("Frame")
+        local targetFrame = Instance.new("ScrollingFrame")
         targetFrame.Name = targetName
-        targetFrame.Size = UDim2.new(1, 0, 1, -27)
-        targetFrame.Position = UDim2.new(0, 0, 0, 27)
+        targetFrame.Size = UDim2.new(1, -20, 1, -27)
+        targetFrame.Position = UDim2.new(0, 10, 0, 27)
         targetFrame.BackgroundTransparency = 1
         targetFrame.BorderSizePixel = 0
+        targetFrame.ScrollBarThickness = 0
+        targetFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
         targetFrame.Visible = false
+        
+        local layout = Instance.new("UIListLayout")
+        layout.Padding = UDim.new(0, 10)
+        layout.Parent = targetFrame
+        
+        local padding = Instance.new("UIPadding")
+        padding.PaddingTop = UDim.new(0, 5)
+        padding.PaddingBottom = UDim.new(0, 10)
+        padding.Parent = targetFrame
+
         if state.Window002 then
             targetFrame.Parent = state.Window002
         end
         state.Frames[targetName] = targetFrame
     end
+    
+    state.CurrentTabFrame = state.Frames[targetName]
 
     local subLine = Instance.new("Frame")
     subLine.Name = "SubLine_" .. formattedId
@@ -1111,11 +1126,10 @@ function Lib:Tab(textStr, iconImg, callback)
         curSec.Frame.Size = UDim2.new(1, 0, 0, targetOpen)
     end
 
-    -- Логика Lib:Sidebar(true) - Выбираем вкладку без открытия секции
     if state.OpenFirst and not state.ScheduledAutoSelect then
         state.ScheduledAutoSelect = true
         task.delay(0.1, function()
-            switchTargetFrame("001") -- делает кнопку нажатой и открывает ее невидимое окно F001
+            switchTargetFrame("001")
             local firstSec = state.Sections[1]
             if firstSec and firstSec.FirstCallback then
                 task.spawn(firstSec.FirstCallback)
@@ -1267,6 +1281,88 @@ function Lib:Text(textStr)
             txt.Text = newText
         end
     }
+end
+
+function Lib:Group(titleText)
+    if not state.CurrentTabFrame then return end
+
+    local groupFrame = Instance.new("Frame")
+    groupFrame.Name = "Group_" .. tostring(titleText)
+    groupFrame.Size = UDim2.new(1, 0, 0, 0)
+    groupFrame.AutomaticSize = Enum.AutomaticSize.Y
+    groupFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 18)
+    groupFrame.BorderSizePixel = 0
+    groupFrame.Parent = state.CurrentTabFrame
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = groupFrame
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(40, 40, 45)
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = groupFrame
+
+    local header = Instance.new("TextLabel")
+    header.Name = "Header"
+    header.Size = UDim2.new(1, -16, 0, 30)
+    header.Position = UDim2.new(0, 8, 0, 0)
+    header.BackgroundTransparency = 1
+    header.Font = Enum.Font.GothamBold
+    header.TextSize = 12
+    header.TextColor3 = Color3.fromRGB(240, 240, 245)
+    header.TextXAlignment = Enum.TextXAlignment.Left
+    header.Text = titleText
+    header.Parent = groupFrame
+
+    local divider = Instance.new("Frame")
+    divider.Name = "Divider"
+    divider.Size = UDim2.new(1, -16, 0, 1)
+    divider.Position = UDim2.new(0, 8, 0, 30)
+    divider.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+    divider.BorderSizePixel = 0
+    divider.Parent = groupFrame
+    
+    local grad = Instance.new("UIGradient")
+    grad.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0),
+        NumberSequenceKeypoint.new(0.6, 0.7),
+        NumberSequenceKeypoint.new(1, 1)
+    })
+    grad.Parent = divider
+
+    local container = Instance.new("Frame")
+    container.Name = "Container"
+    container.Size = UDim2.new(1, -16, 0, 0)
+    container.Position = UDim2.new(0, 8, 0, 36)
+    container.BackgroundTransparency = 1
+    container.AutomaticSize = Enum.AutomaticSize.Y
+    container.Parent = groupFrame
+
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 6)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Parent = container
+    
+    local padding = Instance.new("UIPadding")
+    padding.PaddingBottom = UDim.new(0, 10)
+    padding.Parent = groupFrame
+
+    state.CurrentGroup = container
+end
+
+function Lib:Label(textStr)
+    if not state.CurrentGroup then return end
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, 0, 0, 18)
+    lbl.BackgroundTransparency = 1
+    lbl.Font = Enum.Font.GothamMedium
+    lbl.TextSize = 12
+    lbl.TextColor3 = Color3.fromRGB(150, 150, 150)
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Text = textStr
+    lbl.Parent = state.CurrentGroup
 end
 
 initGUI()
