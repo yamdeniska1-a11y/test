@@ -1321,7 +1321,20 @@ end
 for i = 1, 50 do
     Lib["Group" .. i] = function(self, titleText)
         local curSec = state.CurrentSection
-        local targetTabId = (curSec and curSec.TabIds and curSec.TabIds[i]) or string.format("%03d", i)
+        local targetTabId = nil
+        
+        if curSec and curSec.TabIds and curSec.TabIds[i] then
+            targetTabId = curSec.TabIds[i]
+        else
+            for _, sec in ipairs(state.Sections) do
+                if sec.TabIds and sec.TabIds[i] then
+                    targetTabId = sec.TabIds[i]
+                    break
+                end
+            end
+        end
+        
+        targetTabId = targetTabId or string.format("%03d", i)
         local targetTabFrame = state.Frames["F" .. targetTabId] or state.CurrentTabFrame
         return CreateInternalGroup(targetTabFrame, titleText, targetTabId)
     end
