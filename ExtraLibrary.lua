@@ -1,16 +1,15 @@
 local Lib = {}
 
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local GuiService = game:GetService("GuiService")
-local RunService = game:GetService("RunService")
-local Camera = workspace.CurrentCamera
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+local ts = game:GetService("TweenService")
+local uis = game:GetService("UserInputService")
+local gs = game:GetService("GuiService")
+local cam = workspace.CurrentCamera
+local playersService = game:GetService("Players")
+local p = playersService.LocalPlayer
 
-local ArrowAssetId = "rbxassetid://101007429951147"
-local DefaultTweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local HoverTweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local FIXED_ARROW_ID = "rbxassetid://101007429951147"
+local TWEEN_INFO = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local HOVER_INFO = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 local UI = {
     HeaderHeight = 26,
@@ -29,6 +28,7 @@ local UI = {
     AccentColor = Color3.fromRGB(255, 255, 255),
     IconSize = 14,
     IconGap = 8,
+    SectionBottomPad = 6,
     HeaderFont = Enum.Font.GothamBold,
     HeaderSize = 13,
     ItemFont = Enum.Font.GothamMedium,
@@ -52,6 +52,7 @@ local state = {
     MiniButtons = {},
     Frames = {},
     Sections = {},
+    CurrentSectionTabIds = {},
     LastExpandedClose = nil,
     CurrentSection = nil,
     GlobalTabCount = 0,
@@ -59,38 +60,16 @@ local state = {
     Initialized = false,
     ScheduledAutoSelect = false,
     GuiToggleConn = nil,
-    LastCreatedType = nil,
-    LastCreatedTabId = nil,
-    CurrentTabFrame = nil, 
+    CurrentTabFrame = nil,
     CurrentGroup = nil,
-    TabGridSettings = {},
-    IsGrid = false
+    IsGrid = false,
+    TabCallbacksRan = {},
 }
 
-local function setGrid(val)
-    local isEnabled = (val == true)
+local env = getgenv and getgenv() or _G
+env.net = function(isEnabled)
     state.IsGrid = isEnabled
-    if state.LastCreatedTabId then
-        state.TabGridSettings[state.LastCreatedTabId] = isEnabled
-    end
 end
-
-_G.Grid = setGrid
-_G.net = setGrid
-if getgenv then
-    getgenv().Grid = setGrid
-    getgenv().net = setGrid
-end
-pcall(function()
-    local caller = getfenv(2)
-    caller.Grid = setGrid
-    caller.net = setGrid
-end)
-pcall(function()
-    local rootEnv = getfenv(0)
-    rootEnv.Grid = setGrid
-    rootEnv.net = setGrid
-end)
 
 local function resolveImage(img)
     if not img then return nil end
@@ -159,10 +138,13 @@ local function updateHighlightVisuals()
 end
 
 local function switchTargetFrame(targetNumStr)
+    if state.CurrentActiveId == targetNumStr then return end
     state.CurrentActiveId = targetNumStr
     local targetName = "F" .. targetNumStr
 
-    for _, f in pairs(state.Frames) do f.Visible = false end
+    for _, f in pairs(state.Frames) do
+        if f.Visible then f.Visible = false end
+    end
 
     local tf = state.Frames[targetName]
     if tf then
@@ -191,7 +173,7 @@ local function initGUI()
     state.ScreenGui = s
 
     if not state.GuiToggleConn then
-        state.GuiToggleConn = UserInputService.InputBegan:Connect(function(input, gp)
+        state.GuiToggleConn = uis.InputBegan:Connect(function(input, gp)
             if not gp and input.KeyCode == Enum.KeyCode.LeftAlt then
                 if state.ScreenGui then
                     state.ScreenGui.Enabled = not state.ScreenGui.Enabled
@@ -200,7 +182,7 @@ local function initGUI()
         end)
     end
 
-    local screenSize = (s and s.AbsoluteSize) or Camera.ViewportSize
+    local screenSize = (s and s.AbsoluteSize) or cam.ViewportSize
     local startX = math.round((screenSize.X - 651) / 2)
     local startY = math.round((screenSize.Y - 450) / 2)
 
@@ -469,7 +451,6 @@ local function initGUI()
     local avatarCorner = Instance.new("UICorner")
     avatarCorner.CornerRadius = UDim.new(1, 0)
     avatarCorner.Parent = avatarImg
-    addUIStroke(avatarImg, Color3.fromRGB(50, 50, 60), 1, 0.3, 0)
 
     local helloLabel = Instance.new("TextLabel")
     helloLabel.Name = "HelloLabel"
@@ -490,7 +471,7 @@ local function initGUI()
     nickLabel.Position = UDim2.new(0, 44, 0, 21)
     nickLabel.BackgroundTransparency = 1
     nickLabel.Font = Enum.Font.GothamBold
-    nickLabel.Text = (LocalPlayer and LocalPlayer.Name) or "Player"
+    nickLabel.Text = (p and p.Name) or "Player"
     nickLabel.TextColor3 = Color3.fromRGB(240, 240, 245)
     nickLabel.TextScaled = true
     nickLabel.TextTruncate = Enum.TextTruncate.AtEnd
@@ -506,8 +487,8 @@ local function initGUI()
     task.spawn(function()
         pcall(function()
             local success, thumbnail = pcall(function()
-                return Players:GetUserThumbnailAsync(
-                    LocalPlayer.UserId,
+                return playersService:GetUserThumbnailAsync(
+                    p.UserId,
                     Enum.ThumbnailType.HeadShot,
                     Enum.ThumbnailSize.Size150x150
                 )
@@ -567,11 +548,32 @@ local function initGUI()
     hitBoxC.ZIndex = 62
     hitBoxC.Parent = closeFrame
     hitBoxC.Activated:Connect(function()
+        if s then s:Destroy() end
+    end)
+
+    s.Destroying:Connect(function()
         if state.GuiToggleConn then
             state.GuiToggleConn:Disconnect()
             state.GuiToggleConn = nil
         end
-        if s then s:Destroy() end
+        state.Initialized = false
+        state.ScreenGui = nil
+        state.Window001 = nil
+        state.Window002 = nil
+        state.SidebarScroll = nil
+        state.CurrentActiveId = nil
+        table.clear(state.MiniButtons)
+        table.clear(state.Frames)
+        table.clear(state.Sections)
+        table.clear(state.CurrentSectionTabIds)
+        table.clear(state.TabCallbacksRan)
+        state.LastExpandedClose = nil
+        state.CurrentSection = nil
+        state.GlobalTabCount = 0
+        state.OpenFirst = true
+        state.ScheduledAutoSelect = false
+        state.CurrentTabFrame = nil
+        state.CurrentGroup = nil
     end)
 
     local minusFrame = Instance.new("Frame")
@@ -618,22 +620,16 @@ local function initGUI()
         local rightEdge = curX + f1.Size.X.Offset
         local targetX = math.max(0, rightEdge - targetWidth)
 
-        local twFrame = TweenService:Create(f1, animInfo, {
+        local twFrame = ts:Create(f1, animInfo, {
             Size = UDim2.new(0, targetWidth, 0, 450),
             Position = UDim2.new(0, targetX, 0, curY)
         })
-        local twCorner = TweenService:Create(c1, animInfo, {CornerRadius = UDim.new(0, 9)})
-        local twCorner2 = TweenService:Create(c2, animInfo, {CornerRadius = UDim.new(0, 9)})
-        local twCornerCf = TweenService:Create(c3, animInfo, {CornerRadius = UDim.new(0, 9)})
-        local twCf = TweenService:Create(cf, animInfo, {BackgroundTransparency = targetCfTransparency})
-        local twStrokeF1 = TweenService:Create(strokeF1, animInfo, {Transparency = targetStrokeF1})
-        local twStrokeF2 = TweenService:Create(strokeF2, animInfo, {Transparency = targetStrokeF2})
+        local twCorner = ts:Create(cf, animInfo, {BackgroundTransparency = targetCfTransparency})
+        local twStrokeF1 = ts:Create(strokeF1, animInfo, {Transparency = targetStrokeF1})
+        local twStrokeF2 = ts:Create(strokeF2, animInfo, {Transparency = targetStrokeF2})
 
         twFrame:Play()
         twCorner:Play()
-        twCorner2:Play()
-        twCornerCf:Play()
-        twCf:Play()
         twStrokeF1:Play()
         twStrokeF2:Play()
 
@@ -679,8 +675,8 @@ local function initGUI()
         local targetX = math.round(dragStartFrame.X + delta.X)
         local targetY = math.round(dragStartFrame.Y + delta.Y)
 
-        local scrSize = (s and s.AbsoluteSize) or Camera.ViewportSize
-        local inset = GuiService:GetGuiInset()
+        local scrSize = (s and s.AbsoluteSize) or cam.ViewportSize
+        local inset = gs:GetGuiInset()
         local screenW = scrSize.X
         local screenH = scrSize.Y - inset.Y
 
@@ -702,13 +698,13 @@ local function initGUI()
             local moveConn
             local endConn
 
-            moveConn = UserInputService.InputChanged:Connect(function(moveInput)
+            moveConn = uis.InputChanged:Connect(function(moveInput)
                 if (moveInput.UserInputType == Enum.UserInputType.MouseMovement or moveInput.UserInputType == Enum.UserInputType.Touch) and isDragging then
                     updateDrag(moveInput)
                 end
             end)
 
-            endConn = UserInputService.InputEnded:Connect(function(endInput)
+            endConn = uis.InputEnded:Connect(function(endInput)
                 if endInput.UserInputType == Enum.UserInputType.MouseButton1 or endInput.UserInputType == Enum.UserInputType.Touch then
                     isDragging = false
                     if moveConn then moveConn:Disconnect() end
@@ -729,6 +725,8 @@ function Lib:Section(titleText, iconImg)
     initGUI()
     local sf = state.SidebarScroll
     if not sf then return end
+
+    state.CurrentSectionTabIds = {}
 
     local order = #state.Sections + 1
     local entry = Instance.new("Frame")
@@ -782,7 +780,7 @@ function Lib:Section(titleText, iconImg)
     arrow.AnchorPoint = Vector2.new(0.5, 0.5)
     arrow.Position = UDim2.new(1, -8, 0.5, 0)
     arrow.Size = UDim2.new(0, 10, 0, 10)
-    arrow.Image = ArrowAssetId
+    arrow.Image = FIXED_ARROW_ID
     arrow.ImageColor3 = UI.HeaderColor
     arrow.Rotation = 0
     arrow.Parent = hl
@@ -801,12 +799,10 @@ function Lib:Section(titleText, iconImg)
     sl.Parent = sc
 
     local sectionObj = {
-        Index = order,
         Frame = entry,
         Container = sc,
         Arrow = arrow,
         SubCount = 0,
-        TabIds = {},
         FirstTabId = nil,
         FirstCallback = nil,
         IsExpanded = false,
@@ -815,12 +811,15 @@ function Lib:Section(titleText, iconImg)
 
     local function recalculateHeight()
         local count = sectionObj.SubCount
-        return UI.HeaderHeight + (count * UI.RowHeight) + (math.max(0, count - 1) * UI.SubPadding) + 6
+        return UI.HeaderHeight + (count * UI.RowHeight) + (math.max(0, count - 1) * UI.SubPadding) + UI.SectionBottomPad
     end
 
     local busy = false
     local function setExpanded(expand, instant)
-        if expand == sectionObj.IsExpanded then return end
+        if expand == sectionObj.IsExpanded then
+            busy = false
+            return
+        end
         if expand and state.LastExpandedClose and state.LastExpandedClose ~= setExpanded then
             local prevClose = state.LastExpandedClose
             state.LastExpandedClose = nil
@@ -830,7 +829,6 @@ function Lib:Section(titleText, iconImg)
         sectionObj.IsExpanded = expand
         if expand then
             state.LastExpandedClose = setExpanded
-            state.CurrentSection = sectionObj
         elseif state.LastExpandedClose == setExpanded then
             state.LastExpandedClose = nil
         end
@@ -843,17 +841,22 @@ function Lib:Section(titleText, iconImg)
             entry.Size = sz
             arrow.Rotation = rot
             entry.ClipsDescendants = not sectionObj.IsExpanded
+            busy = false
         else
-            local tw = TweenService:Create(entry, DefaultTweenInfo, {Size = sz})
-            TweenService:Create(arrow, DefaultTweenInfo, {Rotation = rot}):Play()
-            tw:Play()
+            local tw = ts:Create(entry, TWEEN_INFO, {Size = sz})
+            ts:Create(arrow, TWEEN_INFO, {Rotation = rot}):Play()
             if sectionObj.IsExpanded then
                 tw.Completed:Connect(function()
                     if sectionObj.IsExpanded then entry.ClipsDescendants = false end
+                    busy = false
                 end)
             else
                 entry.ClipsDescendants = true
+                tw.Completed:Connect(function()
+                    busy = false
+                end)
             end
+            tw:Play()
         end
     end
 
@@ -870,15 +873,12 @@ function Lib:Section(titleText, iconImg)
     headerBtn.MouseButton1Click:Connect(function()
         if busy or sectionObj.SubCount <= 0 then return end
         busy = true
-        state.CurrentSection = sectionObj
         setExpanded(not sectionObj.IsExpanded, false)
-        task.defer(function() busy = false end)
     end)
 
     table.insert(state.Sections, sectionObj)
     state.CurrentSection = sectionObj
-    state.LastCreatedType = "Section"
-    
+
     return sectionObj
 end
 
@@ -891,7 +891,7 @@ function Lib:Tab(textStr, iconImg, callback)
     curSec.SubCount = curSec.SubCount + 1
 
     local formattedId = string.format("%03d", state.GlobalTabCount)
-    table.insert(curSec.TabIds, formattedId)
+    table.insert(state.CurrentSectionTabIds, formattedId)
 
     if not curSec.FirstTabId then
         curSec.FirstTabId = formattedId
@@ -906,20 +906,26 @@ function Lib:Tab(textStr, iconImg, callback)
         targetFrame.Position = UDim2.new(0, 10, 0, 27)
         targetFrame.BackgroundTransparency = 1
         targetFrame.BorderSizePixel = 0
-        targetFrame.ScrollBarThickness = 0
+        targetFrame.ScrollBarThickness = 3
+        targetFrame.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 75)
+        targetFrame.ScrollBarImageTransparency = 0.5
+        targetFrame.ScrollingEnabled = true
+        targetFrame.ElasticBehavior = Enum.ElasticBehavior.Never
         targetFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        targetFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
         targetFrame.Visible = false
-        
+
         local layout = Instance.new("UIListLayout")
         layout.Padding = UDim.new(0, 10)
         layout.FillDirection = Enum.FillDirection.Horizontal
         layout.Wraps = true
         layout.SortOrder = Enum.SortOrder.LayoutOrder
         layout.Parent = targetFrame
-        
+
         local padding = Instance.new("UIPadding")
         padding.PaddingTop = UDim.new(0, 5)
         padding.PaddingBottom = UDim.new(0, 10)
+        padding.PaddingRight = UDim.new(0, 4)
         padding.Parent = targetFrame
 
         if state.Window002 then
@@ -927,7 +933,7 @@ function Lib:Tab(textStr, iconImg, callback)
         end
         state.Frames[targetName] = targetFrame
     end
-    
+
     state.CurrentTabFrame = state.Frames[targetName]
 
     local subLine = Instance.new("Frame")
@@ -1026,26 +1032,26 @@ function Lib:Tab(textStr, iconImg, callback)
     btn.MouseEnter:Connect(function()
         if state.CurrentActiveId == formattedId then return end
         card.BackgroundColor3 = UI.SubHoverBg
-        TweenService:Create(card, HoverTweenInfo, {BackgroundTransparency = 0.15}):Play()
-        TweenService:Create(stroke, HoverTweenInfo, {Transparency = 0.4, Color = UI.StrokeHover}):Play()
+        ts:Create(card, HOVER_INFO, {BackgroundTransparency = 0.15}):Play()
+        ts:Create(stroke, HOVER_INFO, {Transparency = 0.4, Color = UI.StrokeHover}):Play()
     end)
 
     btn.MouseLeave:Connect(function()
         if state.CurrentActiveId == formattedId then return end
-        TweenService:Create(card, HoverTweenInfo, {BackgroundTransparency = 1}):Play()
-        TweenService:Create(stroke, HoverTweenInfo, {Transparency = 1}):Play()
+        ts:Create(card, HOVER_INFO, {BackgroundTransparency = 1}):Play()
+        ts:Create(stroke, HOVER_INFO, {Transparency = 1}):Play()
     end)
 
     btn.MouseButton1Click:Connect(function()
-        state.CurrentSection = curSec
         switchTargetFrame(formattedId)
-        if callback then
+        if callback and not state.TabCallbacksRan[formattedId] then
+            state.TabCallbacksRan[formattedId] = true
             task.spawn(callback)
         end
     end)
 
     if curSec.IsExpanded then
-        local targetOpen = UI.HeaderHeight + (curSec.SubCount * UI.RowHeight) + (math.max(0, curSec.SubCount - 1) * UI.SubPadding) + 6
+        local targetOpen = UI.HeaderHeight + (curSec.SubCount * UI.RowHeight) + (math.max(0, curSec.SubCount - 1) * UI.SubPadding) + UI.SectionBottomPad
         curSec.Frame.Size = UDim2.new(1, 0, 0, targetOpen)
     end
 
@@ -1054,15 +1060,12 @@ function Lib:Tab(textStr, iconImg, callback)
         task.delay(0.1, function()
             switchTargetFrame("001")
             local firstSec = state.Sections[1]
-            if firstSec and firstSec.FirstCallback then
+            if firstSec and firstSec.FirstCallback and not state.TabCallbacksRan["001"] then
+                state.TabCallbacksRan["001"] = true
                 task.spawn(firstSec.FirstCallback)
             end
         end)
     end
-    
-    state.LastCreatedType = "Tab"
-    state.LastCreatedTabId = formattedId
-    state.TabGridSettings[formattedId] = state.IsGrid
 end
 
 function Lib:Button(textStr, iconImg, callback)
@@ -1142,19 +1145,19 @@ function Lib:Button(textStr, iconImg, callback)
     btn.Parent = card
 
     btn.MouseEnter:Connect(function()
-        TweenService:Create(card, HoverTweenInfo, {BackgroundTransparency = 0.2}):Play()
-        TweenService:Create(stroke, HoverTweenInfo, {Transparency = 0.4, Color = UI.StrokeHover}):Play()
+        ts:Create(card, HOVER_INFO, {BackgroundTransparency = 0.2}):Play()
+        ts:Create(stroke, HOVER_INFO, {Transparency = 0.4, Color = UI.StrokeHover}):Play()
     end)
 
     btn.MouseLeave:Connect(function()
-        TweenService:Create(card, HoverTweenInfo, {BackgroundTransparency = 1}):Play()
-        TweenService:Create(stroke, HoverTweenInfo, {Transparency = 1}):Play()
+        ts:Create(card, HOVER_INFO, {BackgroundTransparency = 1}):Play()
+        ts:Create(stroke, HOVER_INFO, {Transparency = 1}):Play()
     end)
 
     btn.MouseButton1Click:Connect(function()
-        TweenService:Create(card, TweenInfo.new(0.08), {BackgroundTransparency = 0}):Play()
+        ts:Create(card, TweenInfo.new(0.08), {BackgroundTransparency = 0}):Play()
         task.delay(0.08, function()
-            TweenService:Create(card, TweenInfo.new(0.15), {BackgroundTransparency = 0.2}):Play()
+            ts:Create(card, TweenInfo.new(0.15), {BackgroundTransparency = 0.2}):Play()
         end)
         if callback then
             task.spawn(callback)
@@ -1162,7 +1165,7 @@ function Lib:Button(textStr, iconImg, callback)
     end)
 
     if curSec.IsExpanded then
-        local targetOpen = UI.HeaderHeight + (curSec.SubCount * UI.RowHeight) + (math.max(0, curSec.SubCount - 1) * UI.SubPadding) + 6
+        local targetOpen = UI.HeaderHeight + (curSec.SubCount * UI.RowHeight) + (math.max(0, curSec.SubCount - 1) * UI.SubPadding) + UI.SectionBottomPad
         curSec.Frame.Size = UDim2.new(1, 0, 0, targetOpen)
     end
 end
@@ -1196,72 +1199,43 @@ function Lib:Text(textStr)
     txt.Parent = subLine
 
     if curSec.IsExpanded then
-        local targetOpen = UI.HeaderHeight + (curSec.SubCount * UI.RowHeight) + (math.max(0, curSec.SubCount - 1) * UI.SubPadding) + 6
+        local targetOpen = UI.HeaderHeight + (curSec.SubCount * UI.RowHeight) + (math.max(0, curSec.SubCount - 1) * UI.SubPadding) + UI.SectionBottomPad
         curSec.Frame.Size = UDim2.new(1, 0, 0, targetOpen)
     end
 
-    return {
-        SetText = function(_, newText)
-            txt.Text = newText
-        end
-    }
+    local obj = {}
+    function obj:SetText(newText)
+        txt.Text = newText
+    end
+    return obj
 end
 
-local function CreateInternalGroup(tabFrame, titleText, tabId)
+local function CreateInternalGroup(tabFrame, titleText)
     if not tabFrame then return end
-
-    local isGridActive = false
-    if tabId and state.TabGridSettings[tabId] ~= nil then
-        isGridActive = state.TabGridSettings[tabId]
-    else
-        isGridActive = state.IsGrid
-    end
 
     local groupFrame = Instance.new("Frame")
     groupFrame.Name = "Group_" .. tostring(titleText)
-    groupFrame.Size = isGridActive and UDim2.new(0.5, -5, 0, 0) or UDim2.new(1, 0, 0, 0)
+    groupFrame.Size = state.IsGrid and UDim2.new(0.5, -5, 0, 0) or UDim2.new(1, 0, 0, 0)
     groupFrame.AutomaticSize = Enum.AutomaticSize.Y
-    groupFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
+    groupFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 18)
     groupFrame.BorderSizePixel = 0
-    groupFrame.ClipsDescendants = true
     groupFrame.Parent = tabFrame
 
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 6)
     corner.Parent = groupFrame
 
-    local headerTopBar = Instance.new("Frame")
-    headerTopBar.Name = "HeaderTopBar"
-    headerTopBar.Size = UDim2.new(1, 0, 0, 28)
-    headerTopBar.Position = UDim2.new(0, 0, 0, 0)
-    headerTopBar.BackgroundColor3 = Color3.fromRGB(13, 13, 13)
-    headerTopBar.BorderSizePixel = 0
-    headerTopBar.Parent = groupFrame
-
-    local topBarCorner = Instance.new("UICorner")
-    topBarCorner.CornerRadius = UDim.new(0, 6)
-    topBarCorner.Parent = headerTopBar
-
-    local bottomCover = Instance.new("Frame")
-    bottomCover.Name = "BottomCover"
-    bottomCover.Size = UDim2.new(1, 0, 0, 6)
-    bottomCover.Position = UDim2.new(0, 0, 1, -6)
-    bottomCover.BackgroundColor3 = Color3.fromRGB(13, 13, 13)
-    bottomCover.BorderSizePixel = 0
-    bottomCover.Parent = headerTopBar
-
     local header = Instance.new("TextLabel")
     header.Name = "Header"
-    header.Size = UDim2.new(1, -16, 1, 0)
-    header.Position = UDim2.new(0, 8, 0, 0)
+    header.Size = UDim2.new(1, -16, 0, 26)
+    header.Position = UDim2.new(0, 8, 0, 2)
     header.BackgroundTransparency = 1
     header.Font = Enum.Font.GothamMedium
     header.TextSize = 11
     header.TextColor3 = Color3.fromRGB(200, 200, 205)
     header.TextXAlignment = Enum.TextXAlignment.Left
-    header.TextYAlignment = Enum.TextYAlignment.Center
-    header.Text = string.upper(tostring(titleText)) 
-    header.Parent = headerTopBar
+    header.Text = string.upper(tostring(titleText))
+    header.Parent = groupFrame
 
     local topDividerLine = Instance.new("Frame")
     topDividerLine.Name = "TopHeaderDividerStroke"
@@ -1294,39 +1268,30 @@ local function CreateInternalGroup(tabFrame, titleText, tabId)
     layout.Padding = UDim.new(0, 6)
     layout.SortOrder = Enum.SortOrder.LayoutOrder
     layout.Parent = container
-    
+
     local padding = Instance.new("UIPadding")
     padding.PaddingBottom = UDim.new(0, 10)
     padding.Parent = groupFrame
 
     state.CurrentGroup = container
-    return container
 end
 
 function Lib:Group(titleText)
-    return CreateInternalGroup(state.CurrentTabFrame, titleText, state.LastCreatedTabId)
+    CreateInternalGroup(state.CurrentTabFrame, titleText)
 end
 
 for i = 1, 50 do
     Lib["Group" .. i] = function(self, titleText)
-        local curSec = state.CurrentSection
-        local targetTabId = nil
-        
-        if curSec and curSec.TabIds and curSec.TabIds[i] then
-            targetTabId = curSec.TabIds[i]
-        else
-            for _, sec in ipairs(state.Sections) do
-                if sec.TabIds and sec.TabIds[i] then
-                    targetTabId = sec.TabIds[i]
-                    break
-                end
-            end
-        end
-        
-        targetTabId = targetTabId or string.format("%03d", i)
-        local targetTabFrame = state.Frames["F" .. targetTabId] or state.CurrentTabFrame
-        return CreateInternalGroup(targetTabFrame, titleText, targetTabId)
+        local targetTabId = state.CurrentSectionTabIds[i]
+        local targetTabFrame = targetTabId and state.Frames["F" .. targetTabId] or state.CurrentTabFrame
+        CreateInternalGroup(targetTabFrame, titleText)
     end
+end
+
+function Lib:GroupAt(index, titleText)
+    local targetTabId = state.CurrentSectionTabIds[index]
+    local targetTabFrame = targetTabId and state.Frames["F" .. targetTabId] or state.CurrentTabFrame
+    CreateInternalGroup(targetTabFrame, titleText)
 end
 
 function Lib:Label(textStr)
@@ -1341,7 +1306,10 @@ function Lib:Label(textStr)
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Text = textStr
     lbl.Parent = state.CurrentGroup
-    return lbl
+end
+
+function Lib:SetGrid(enabled)
+    state.IsGrid = tostring(enabled) == "true" or enabled == true
 end
 
 initGUI()
