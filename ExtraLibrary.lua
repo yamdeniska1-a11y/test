@@ -978,7 +978,6 @@ function Lib:Tab(textStr, iconImg, callback)
         curSec.FirstCallback = callback
     end
 
-    -- АВТОМАТИЧЕСКОЕ СОЗДАНИЕ ОКНА ДЛЯ ВЫБРАННОЙ ВКЛАДКИ (Теперь ScrollingFrame)
     local targetName = "F" .. formattedId
     if not state.Frames[targetName] then
         local targetFrame = Instance.new("ScrollingFrame")
@@ -1283,8 +1282,8 @@ function Lib:Text(textStr)
     }
 end
 
-function Lib:Group(titleText)
-    if not state.CurrentTabFrame then return end
+local function CreateInternalGroup(tabFrame, titleText)
+    if not tabFrame then return end
 
     local groupFrame = Instance.new("Frame")
     groupFrame.Name = "Group_" .. tostring(titleText)
@@ -1292,44 +1291,42 @@ function Lib:Group(titleText)
     groupFrame.AutomaticSize = Enum.AutomaticSize.Y
     groupFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 18)
     groupFrame.BorderSizePixel = 0
-    groupFrame.Parent = state.CurrentTabFrame
+    groupFrame.Parent = tabFrame
 
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 6)
     corner.Parent = groupFrame
 
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(40, 40, 45)
-    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    stroke.Parent = groupFrame
-
-    local header = Instance.new("TextLabel")
+   local header = Instance.new("TextLabel")
     header.Name = "Header"
-    header.Size = UDim2.new(1, -16, 0, 30)
-    header.Position = UDim2.new(0, 8, 0, 0)
+    header.Size = UDim2.new(1, -16, 0, 26)
+    header.Position = UDim2.new(0, 8, 0, 2)
     header.BackgroundTransparency = 1
-    header.Font = Enum.Font.GothamBold
-    header.TextSize = 12
-    header.TextColor3 = Color3.fromRGB(240, 240, 245)
+    header.Font = Enum.Font.GothamMedium
+    header.TextSize = 11
+    header.TextColor3 = Color3.fromRGB(200, 200, 205)
     header.TextXAlignment = Enum.TextXAlignment.Left
-    header.Text = titleText
+    header.Text = string.upper(tostring(titleText)) 
     header.Parent = groupFrame
 
-    local divider = Instance.new("Frame")
-    divider.Name = "Divider"
-    divider.Size = UDim2.new(1, -16, 0, 1)
-    divider.Position = UDim2.new(0, 8, 0, 30)
-    divider.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
-    divider.BorderSizePixel = 0
-    divider.Parent = groupFrame
-    
-    local grad = Instance.new("UIGradient")
-    grad.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 0),
-        NumberSequenceKeypoint.new(0.6, 0.7),
+    local topDividerLine = Instance.new("Frame")
+    topDividerLine.Name = "TopHeaderDividerStroke"
+    topDividerLine.Size = UDim2.new(1, 0, 0, 1)
+    topDividerLine.Position = UDim2.new(0, 0, 0, 28)
+    topDividerLine.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    topDividerLine.BorderSizePixel = 0
+    topDividerLine.ZIndex = 2
+    topDividerLine.Parent = groupFrame
+
+    local topDividerGradient = Instance.new("UIGradient")
+    topDividerGradient.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.1, 0.35),
+        NumberSequenceKeypoint.new(0.9, 0.35),
         NumberSequenceKeypoint.new(1, 1)
     })
-    grad.Parent = divider
+    topDividerGradient.Rotation = 0
+    topDividerGradient.Parent = topDividerLine
 
     local container = Instance.new("Frame")
     container.Name = "Container"
@@ -1349,6 +1346,18 @@ function Lib:Group(titleText)
     padding.Parent = groupFrame
 
     state.CurrentGroup = container
+end
+
+function Lib:Group(titleText)
+    CreateInternalGroup(state.CurrentTabFrame, titleText)
+end
+
+for i = 1, 50 do
+    Lib["Group" .. i] = function(self, titleText)
+        local targetTabId = string.format("%03d", i)
+        local targetTabFrame = state.Frames["F" .. targetTabId]
+        CreateInternalGroup(targetTabFrame, titleText)
+    end
 end
 
 function Lib:Label(textStr)
