@@ -52,8 +52,6 @@ local state = {
     MiniButtons = {},
     Frames = {},
     Sections = {},
-    SectionTabMapping = {},
-    GlobalTabs = {},
     LastExpandedClose = nil,
     CurrentSection = nil,
     GlobalTabCount = 0,
@@ -83,18 +81,16 @@ if getgenv then
     getgenv().Grid = setGrid
     getgenv().net = setGrid
 end
-if getfenv then
-    pcall(function()
-        local caller = getfenv(2)
-        caller.Grid = setGrid
-        caller.net = setGrid
-    end)
-    pcall(function()
-        local rootEnv = getfenv(0)
-        rootEnv.Grid = setGrid
-        rootEnv.net = setGrid
-    end)
-end
+pcall(function()
+    local caller = getfenv(2)
+    caller.Grid = setGrid
+    caller.net = setGrid
+end)
+pcall(function()
+    local rootEnv = getfenv(0)
+    rootEnv.Grid = setGrid
+    rootEnv.net = setGrid
+end)
 
 local function resolveImage(img)
     if not img then return nil end
@@ -153,8 +149,8 @@ local function refreshFramesRegistry()
             state.Frames[d.Name] = d
             if state.Window002 and d.Parent ~= state.Window002 then
                 d.Parent = state.Window002
-                d.Position = UDim2.new(0, 0, 0, 27)
-                d.Size = UDim2.new(1, 0, 1, -27)
+                d.Position = UDim2.new(0, 10, 0, 27)
+                d.Size = UDim2.new(1, -20, 1, -27)
                 d.BackgroundTransparency = 1
                 d.BorderSizePixel = 0
             end
@@ -816,6 +812,7 @@ function Lib:Section(titleText, iconImg)
     sl.Parent = sc
 
     local sectionObj = {
+        Index = order,
         Frame = entry,
         Container = sc,
         Arrow = arrow,
@@ -844,6 +841,7 @@ function Lib:Section(titleText, iconImg)
         sectionObj.IsExpanded = expand
         if expand then
             state.LastExpandedClose = setExpanded
+            state.CurrentSection = sectionObj
         elseif state.LastExpandedClose == setExpanded then
             state.LastExpandedClose = nil
         end
@@ -883,6 +881,7 @@ function Lib:Section(titleText, iconImg)
     headerBtn.MouseButton1Click:Connect(function()
         if busy or sectionObj.SubCount <= 0 then return end
         busy = true
+        state.CurrentSection = sectionObj
         setExpanded(not sectionObj.IsExpanded, false)
         task.defer(function() busy = false end)
     end)
@@ -904,7 +903,6 @@ function Lib:Tab(textStr, iconImg, callback)
 
     local formattedId = string.format("%03d", state.GlobalTabCount)
     table.insert(curSec.TabIds, formattedId)
-    table.insert(state.GlobalTabs, formattedId)
 
     if not curSec.FirstTabId then
         curSec.FirstTabId = formattedId
@@ -1050,6 +1048,7 @@ function Lib:Tab(textStr, iconImg, callback)
     end)
 
     btn.MouseButton1Click:Connect(function()
+        state.CurrentSection = curSec
         switchTargetFrame(formattedId)
         if callback then
             task.spawn(callback)
@@ -1321,7 +1320,8 @@ end
 
 for i = 1, 50 do
     Lib["Group" .. i] = function(self, titleText)
-        local targetTabId = state.GlobalTabs[i] or string.format("%03d", i)
+        local curSec = state.CurrentSection
+        local targetTabId = (curSec and curSec.TabIds and curSec.TabIds[i]) or string.format("%03d", i)
         local targetTabFrame = state.Frames["F" .. targetTabId] or state.CurrentTabFrame
         return CreateInternalGroup(targetTabFrame, titleText, targetTabId)
     end
