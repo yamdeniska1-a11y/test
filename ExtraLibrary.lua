@@ -118,6 +118,28 @@ local function resolveImage(img)
     return s
 end
 
+local function addUIStroke(parentFrame, color, thickness, transparency, rotation)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = color or Color3.fromRGB(40, 40, 40)
+    stroke.Thickness = thickness or 1
+    stroke.Transparency = transparency or 0.4
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.LineJoinMode = Enum.LineJoinMode.Round
+    stroke.Parent = parentFrame
+
+    local gradient = Instance.new("UIGradient")
+    gradient.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.15, 0),
+        NumberSequenceKeypoint.new(0.85, 0),
+        NumberSequenceKeypoint.new(1, 1)
+    })
+    gradient.Rotation = rotation or 0
+    gradient.Parent = stroke
+
+    return stroke
+end
+
 local function refreshFramesRegistry()
     table.clear(state.Frames)
     local targetParent = (p and p:FindFirstChild("PlayerGui")) or state.ScreenGui
@@ -445,6 +467,7 @@ local function initGUI()
     local cardCorner = Instance.new("UICorner")
     cardCorner.CornerRadius = UDim.new(0, 8)
     cardCorner.Parent = profileCard
+    addUIStroke(profileCard, Color3.fromRGB(45, 45, 55), 1, 0.3, 0)
 
     local avatarImg = Instance.new("ImageLabel")
     avatarImg.Name = "PortAvatar"
@@ -460,6 +483,7 @@ local function initGUI()
     local avatarCorner = Instance.new("UICorner")
     avatarCorner.CornerRadius = UDim.new(1, 0)
     avatarCorner.Parent = avatarImg
+    addUIStroke(avatarImg, Color3.fromRGB(50, 50, 60), 1, 0.3, 0)
 
     local helloLabel = Instance.new("TextLabel")
     helloLabel.Name = "HelloLabel"
@@ -521,6 +545,7 @@ local function initGUI()
     local c3 = Instance.new("UICorner")
     c3.CornerRadius = UDim.new(0, 9)
     c3.Parent = fone
+    addUIStroke(fone, Color3.fromRGB(45, 45, 55), 1, 0.4, 0)
 
     local cffone = Instance.new("Frame")
     cffone.Size = UDim2.new(1, 0, 0, 9)
