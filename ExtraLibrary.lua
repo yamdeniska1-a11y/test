@@ -52,7 +52,6 @@ local state = {
     MiniButtons = {},
     Frames = {},
     Sections = {},
-    CurrentSectionTabIds = {},
     LastExpandedClose = nil,
     CurrentSection = nil,
     GlobalTabCount = 0,
@@ -70,15 +69,15 @@ local state = {
 
 local env = getgenv and getgenv() or _G
 
-local function setGridState(isEnabled)
-    state.IsGrid = isEnabled
+local function setGrid(val)
+    state.IsGrid = val
     if state.LastCreatedTabId then
-        state.TabGridSettings[state.LastCreatedTabId] = isEnabled
+        state.TabGridSettings[state.LastCreatedTabId] = val
     end
 end
 
-env.Grid = setGridState
-env.net = setGridState
+env.Grid = setGrid
+env.net = setGrid
 
 local function resolveImage(img)
     if not img then return nil end
@@ -729,8 +728,6 @@ function Lib:Section(titleText, iconImg)
     local sf = state.SidebarScroll
     if not sf then return end
 
-    state.CurrentSectionTabIds = {}
-
     local order = #state.Sections + 1
     local entry = Instance.new("Frame")
     entry.Name = "Entry_" .. order
@@ -806,6 +803,7 @@ function Lib:Section(titleText, iconImg)
         Container = sc,
         Arrow = arrow,
         SubCount = 0,
+        TabIds = {},
         FirstTabId = nil,
         FirstCallback = nil,
         IsExpanded = false,
@@ -874,7 +872,6 @@ function Lib:Section(titleText, iconImg)
 
     table.insert(state.Sections, sectionObj)
     state.CurrentSection = sectionObj
-    
     state.LastCreatedType = "Section"
     
     return sectionObj
@@ -889,7 +886,7 @@ function Lib:Tab(textStr, iconImg, callback)
     curSec.SubCount = curSec.SubCount + 1
 
     local formattedId = string.format("%03d", state.GlobalTabCount)
-    table.insert(state.CurrentSectionTabIds, formattedId)
+    table.insert(curSec.TabIds, formattedId)
 
     if not curSec.FirstTabId then
         curSec.FirstTabId = formattedId
@@ -1299,17 +1296,19 @@ local function CreateInternalGroup(tabFrame, titleText, tabId)
     padding.Parent = groupFrame
 
     state.CurrentGroup = container
+    return container
 end
 
 function Lib:Group(titleText)
-    CreateInternalGroup(state.CurrentTabFrame, titleText, state.LastCreatedTabId)
+    return CreateInternalGroup(state.CurrentTabFrame, titleText, state.LastCreatedTabId)
 end
 
 for i = 1, 50 do
     Lib["Group" .. i] = function(self, titleText)
-        local targetTabId = state.CurrentSectionTabIds[i]
-        local targetTabFrame = targetTabId and state.Frames["F" .. targetTabId] or state.CurrentTabFrame
-        CreateInternalGroup(targetTabFrame, titleText, targetTabId)
+        local curSec = state.CurrentSection
+        local targetTabId = (curSec and curSec.TabIds[i]) or string.format("%03d", i)
+        local targetTabFrame = state.Frames["F" .. targetTabId] or state.CurrentTabFrame
+        return CreateInternalGroup(targetTabFrame, titleText, targetTabId)
     end
 end
 
@@ -1325,6 +1324,7 @@ function Lib:Label(textStr)
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Text = textStr
     lbl.Parent = state.CurrentGroup
+    return lbl
 end
 
 initGUI()
