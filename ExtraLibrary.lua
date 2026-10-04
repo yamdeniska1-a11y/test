@@ -58,6 +58,7 @@ local state = {
     MiniButtons = {},
     Frames = {},
     Sections = {},
+    CurrentSectionTabIds = {}, -- Для изоляции вкладок по секциям
     LastExpandedClose = nil,
     CurrentSection = nil,
     GlobalTabCount = 0,
@@ -69,16 +70,101 @@ local state = {
     LastCreatedTabId = nil,
     CurrentTabFrame = nil, 
     CurrentGroup = nil,
-    CurrentSectionTabs = {}, 
-    LastCreatedGroup = nil,  
-    NextGroupGrid = false,   
+    IsGrid = false -- Хранит состояние сетки (1 или 2 окна)
 }
 
+local function ApplyNetEffect(parentFrame)
+    if parentFrame:FindFirstChild("NetEffectFolder") then return end
+
+    local netFolder = Instance.new("Folder")
+    netFolder.Name = "NetEffectFolder"
+    netFolder.Parent = parentFrame
+
+    local particles = {}
+    local connections = {}
+    local numParticles = 25
+    local maxDistance = 90
+
+    for i = 1, numParticles do
+        local dot = Instance.new("Frame")
+        dot.Size = UDim2.new(0, 2, 0, 2)
+        dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        dot.BorderSizePixel = 0
+        dot.AnchorPoint = Vector2.new(0.5, 0.5)
+        dot.BackgroundTransparency = 0.3
+        dot.ZIndex = parentFrame.ZIndex or 1
+        
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(1, 0)
+        corner.Parent = dot
+        dot.Parent = netFolder
+        
+        table.insert(particles, {
+            gui = dot,
+            x = math.random(0, 500),
+            y = math.random(0, 400),
+            vx = (math.random() - 0.5) * 1.5,
+            vy = (math.random() - 0.5) * 1.5
+        })
+    end
+
+    rs.RenderStepped:Connect(function()
+        if not parentFrame.Visible or not parentFrame.Parent then return end
+        
+        local w, h = parentFrame.AbsoluteSize.X, parentFrame.AbsoluteSize.Y
+        if w == 0 or h == 0 then return end
+
+        for _, line in ipairs(connections) do line:Destroy() end
+        table.clear(connections)
+
+        for _, p in ipairs(particles) do
+            p.x = p.x + p.vx
+            p.y = p.y + p.vy
+
+            if p.x <= 0 or p.x >= w then p.vx = -p.vx end
+            if p.y <= 0 or p.y >= h then p.vy = -p.vy end
+
+            p.gui.Position = UDim2.new(0, p.x, 0, p.y)
+        end
+
+        for i = 1, #particles do
+            for j = i + 1, #particles do
+                local p1, p2 = particles[i], particles[j]
+                local dx, dy = p2.x - p1.x, p2.y - p1.y
+                local dist = math.sqrt(dx*dx + dy*dy)
+
+                if dist < maxDistance then
+                    local line = Instance.new("Frame")
+                    line.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+                    line.BorderSizePixel = 0
+                    line.AnchorPoint = Vector2.new(0.5, 0.5)
+                    line.Size = UDim2.new(0, dist, 0, 1)
+                    line.Position = UDim2.new(0, p1.x + dx/2, 0, p1.y + dy/2)
+                    line.Rotation = math.deg(math.atan2(dy, dx))
+                    line.BackgroundTransparency = 0.4 + (0.6 * (dist / maxDistance))
+                    line.ZIndex = parentFrame.ZIndex or 1
+                    line.Parent = netFolder
+                    table.insert(connections, line)
+                end
+            end
+        end
+    end)
+end
+
 local env = getgenv and getgenv() or _G
-env.net = function(isGrid)
-    state.NextGroupGrid = isGrid
-    if state.LastCreatedGroup then
-        state.LastCreatedGroup.Size = isGrid and UDim2.new(0.5, -5, 0, 0) or UDim2.new(1, 0, 0, 0)
+env.net = function(isEnabled)
+    state.IsGrid = isEnabled -- Управляет шириной новых групп
+    if not isEnabled then return end
+    
+    local currentType = state.LastCreatedType
+    local currentTabId = state.LastCreatedTabId
+    
+    if currentType == "Tab" and currentTabId then
+        local targetName = "F" .. currentTabId
+        local targetFrame = state.Frames[targetName]
+        if targetFrame then
+            ApplyNetEffect(targetFrame)
+        end
     end
 end
 
@@ -128,6 +214,25 @@ local function addUIStroke(parentFrame, color, thickness, transparency, rotation
     gradient.Parent = stroke
 
     return stroke
+end
+
+local function refreshFramesRegistry()
+    table.clear(state.Frames)
+    local targetParent = (p and p:FindFirstChild("PlayerGui")) or state.ScreenGui
+    if not targetParent then return end
+    for _, d in ipairs(targetParent:GetDescendants()) do
+        if d:IsA("GuiObject") and d.Name:match("^F%d%d%d$") then
+            state.Frames[d.Name] = d
+
+            if state.Window002 and d.Parent ~= state.Window002 then
+                d.Parent = state.Window002
+                d.Position = UDim2.new(0, 0, 0, 27)
+                d.Size = UDim2.new(1, 0, 1, -27)
+                d.BackgroundTransparency = 1
+                d.BorderSizePixel = 0
+            end
+        end
+    end
 end
 
 local function updateHighlightVisuals()
@@ -537,14 +642,7 @@ local function initGUI()
     closeFrame.BackgroundTransparency = 1
     closeFrame.ZIndex = 61
     closeFrame.Parent = fone
-    local hitBoxC = Instance.new("TextButton")
-    hitBoxC.Name = "CloseHitbox"
-    hitBoxC.BackgroundTransparency = 1
-    hitBoxC.Text = ""
-    hitBoxC.Size = UDim2.new(1, 0, 1, 0)
-    hitBoxC.ZIndex = 62
-    hitBoxC.Parent = closeFrame
-    
+
     local closeImg = Instance.new("ImageLabel")
     closeImg.AnchorPoint = Vector2.new(0, 0.5)
     closeImg.Position = UDim2.new(0, 7, 0.5, 0)
@@ -554,7 +652,14 @@ local function initGUI()
     closeImg.ScaleType = Enum.ScaleType.Fit
     closeImg.ZIndex = 61
     closeImg.Parent = closeFrame
-    
+
+    local hitBoxC = Instance.new("TextButton")
+    hitBoxC.Name = "CloseHitbox"
+    hitBoxC.BackgroundTransparency = 1
+    hitBoxC.Text = ""
+    hitBoxC.Size = UDim2.new(1, 0, 1, 0)
+    hitBoxC.ZIndex = 62
+    hitBoxC.Parent = closeFrame
     hitBoxC.Activated:Connect(function()
         if state.GuiToggleConn then
             state.GuiToggleConn:Disconnect()
@@ -710,10 +815,10 @@ end
 
 function Lib:Section(titleText, iconImg)
     initGUI()
-    state.CurrentSectionTabs = {}
-    
     local sf = state.SidebarScroll
     if not sf then return end
+
+    state.CurrentSectionTabIds = {} -- Очищаем список табов для новой секции
 
     local order = #state.Sections + 1
     local entry = Instance.new("Frame")
@@ -731,12 +836,28 @@ function Lib:Section(titleText, iconImg)
     hl.Size = UDim2.new(1, -(HEADER_LINE_X * 2), 0, UI.HeaderHeight)
     hl.Parent = entry
 
+    local baseX = HEADER_CONTENT_X
+    local imgAsset = resolveImage(iconImg)
+
+    if imgAsset then
+        local img = Instance.new("ImageLabel")
+        img.Name = "Icon"
+        img.BackgroundTransparency = 1
+        img.AnchorPoint = Vector2.new(0, 0.5)
+        img.Position = UDim2.new(0, baseX, 0.5, 0)
+        img.Size = UDim2.new(0, UI.IconSize, 0, UI.IconSize)
+        img.Image = imgAsset
+        img.ImageColor3 = UI.HeaderColor
+        img.Parent = hl
+    end
+
+    local textX = imgAsset and (baseX + ICON_SLOT) or baseX
     local txt = Instance.new("TextLabel")
     txt.Name = "Label"
     txt.BackgroundTransparency = 1
     txt.AnchorPoint = Vector2.new(0, 0.5)
-    txt.Position = UDim2.new(0, HEADER_CONTENT_X, 0.5, 0)
-    txt.Size = UDim2.new(1, -(HEADER_CONTENT_X + 30), 1, 0)
+    txt.Position = UDim2.new(0, textX, 0.5, 0)
+    txt.Size = UDim2.new(1, -(textX + 30), 1, 0)
     txt.Font = UI.HeaderFont
     txt.TextSize = UI.HeaderSize
     txt.TextXAlignment = Enum.TextXAlignment.Left
@@ -744,7 +865,7 @@ function Lib:Section(titleText, iconImg)
     txt.Text = string.upper(titleText or "")
     txt.TextColor3 = UI.HeaderColor
     txt.Parent = hl
-    
+
     local arrow = Instance.new("ImageLabel")
     arrow.Name = "Arrow"
     arrow.BackgroundTransparency = 1
@@ -774,33 +895,55 @@ function Lib:Section(titleText, iconImg)
         Container = sc,
         Arrow = arrow,
         SubCount = 0,
+        FirstTabId = nil,
+        FirstCallback = nil,
         IsExpanded = false,
         SetExpanded = nil,
     }
 
+    local function recalculateHeight()
+        local count = sectionObj.SubCount
+        return UI.HeaderHeight + (count * UI.RowHeight) + (math.max(0, count - 1) * UI.SubPadding) + 6
+    end
+
+    local busy = false
     local function setExpanded(expand, instant)
         if expand == sectionObj.IsExpanded then return end
+        if expand and state.LastExpandedClose and state.LastExpandedClose ~= setExpanded then
+            local prevClose = state.LastExpandedClose
+            state.LastExpandedClose = nil
+            prevClose(false, instant)
+        end
+
         sectionObj.IsExpanded = expand
-        local count = sectionObj.SubCount
-        local targetOpen = UI.HeaderHeight + (count * UI.RowHeight) + (math.max(0, count - 1) * UI.SubPadding) + 6
-        local sz = expand and UDim2.new(1, 0, 0, targetOpen) or UDim2.new(1, 0, 0, UI.HeaderHeight)
-        local rot = expand and 90 or 0
-        
+        if expand then
+            state.LastExpandedClose = setExpanded
+        elseif state.LastExpandedClose == setExpanded then
+            state.LastExpandedClose = nil
+        end
+
+        local rot = sectionObj.IsExpanded and 90 or 0
+        local targetOpen = recalculateHeight()
+        local sz = sectionObj.IsExpanded and UDim2.new(1, 0, 0, targetOpen) or UDim2.new(1, 0, 0, UI.HeaderHeight)
+
         if instant then
             entry.Size = sz
             arrow.Rotation = rot
-            entry.ClipsDescendants = not expand
+            entry.ClipsDescendants = not sectionObj.IsExpanded
         else
             local tw = ts:Create(entry, TWEEN_INFO, {Size = sz})
             ts:Create(arrow, TWEEN_INFO, {Rotation = rot}):Play()
             tw:Play()
-            if expand then
-                tw.Completed:Connect(function() if sectionObj.IsExpanded then entry.ClipsDescendants = false end end)
+            if sectionObj.IsExpanded then
+                tw.Completed:Connect(function()
+                    if sectionObj.IsExpanded then entry.ClipsDescendants = false end
+                end)
             else
                 entry.ClipsDescendants = true
             end
         end
     end
+
     sectionObj.SetExpanded = setExpanded
 
     local headerBtn = Instance.new("TextButton")
@@ -810,10 +953,17 @@ function Lib:Section(titleText, iconImg)
     headerBtn.AutoButtonColor = false
     headerBtn.Size = UDim2.new(1, 0, 1, 0)
     headerBtn.Parent = hl
-    headerBtn.MouseButton1Click:Connect(function() setExpanded(not sectionObj.IsExpanded, false) end)
+
+    headerBtn.MouseButton1Click:Connect(function()
+        if busy or sectionObj.SubCount <= 0 then return end
+        busy = true
+        setExpanded(not sectionObj.IsExpanded, false)
+        task.defer(function() busy = false end)
+    end)
 
     table.insert(state.Sections, sectionObj)
     state.CurrentSection = sectionObj
+    
     state.LastCreatedType = "Section"
     
     return sectionObj
@@ -828,6 +978,12 @@ function Lib:Tab(textStr, iconImg, callback)
     curSec.SubCount = curSec.SubCount + 1
 
     local formattedId = string.format("%03d", state.GlobalTabCount)
+    table.insert(state.CurrentSectionTabIds, formattedId) -- Запоминаем табы конкретно для этой секции
+
+    if not curSec.FirstTabId then
+        curSec.FirstTabId = formattedId
+        curSec.FirstCallback = callback
+    end
 
     local targetName = "F" .. formattedId
     if not state.Frames[targetName] then
@@ -841,10 +997,11 @@ function Lib:Tab(textStr, iconImg, callback)
         targetFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
         targetFrame.Visible = false
         
+        -- Сетка включена для всех вкладок (горизонтальное заполнение)
         local layout = Instance.new("UIListLayout")
         layout.Padding = UDim.new(0, 10)
-        layout.FillDirection = Enum.FillDirection.Horizontal 
-        layout.Wraps = true 
+        layout.FillDirection = Enum.FillDirection.Horizontal
+        layout.Wraps = true
         layout.SortOrder = Enum.SortOrder.LayoutOrder
         layout.Parent = targetFrame
         
@@ -860,7 +1017,6 @@ function Lib:Tab(textStr, iconImg, callback)
     end
     
     state.CurrentTabFrame = state.Frames[targetName]
-    table.insert(state.CurrentSectionTabs, state.CurrentTabFrame)
 
     local subLine = Instance.new("Frame")
     subLine.Name = "SubLine_" .. formattedId
@@ -878,22 +1034,75 @@ function Lib:Tab(textStr, iconImg, callback)
     card.Size = UDim2.new(1, -(CARD_X + CARD_PAD_R), 0, UI.CardHeight)
     card.Parent = subLine
 
-    local sTxt = Instance.new("TextLabel")
-    sTxt.Name = "Label"
-    sTxt.BackgroundTransparency = 1
-    sTxt.AnchorPoint = Vector2.new(0, 0.5)
-    sTxt.Position = UDim2.new(0, SUB_CONTENT_X + 2, 0.5, 0)
-    sTxt.Size = UDim2.new(1, -(SUB_CONTENT_X + 10), 1, 0)
-    sTxt.Font = UI.ItemFont
-    sTxt.TextSize = UI.ItemSize
-    sTxt.TextXAlignment = Enum.TextXAlignment.Left
-    sTxt.TextYAlignment = Enum.TextYAlignment.Center
-    sTxt.Text = textStr
-    sTxt.TextColor3 = UI.SubIdleColor
-    sTxt.Parent = card
+    local cc = Instance.new("UICorner")
+    cc.CornerRadius = UDim.new(0, 6)
+    cc.Parent = card
 
-    state.MiniButtons[formattedId] = { Card = card, Stroke = Instance.new("UIStroke", card), Accent = Instance.new("Frame", card), Txt = sTxt }
-    state.MiniButtons[formattedId].Stroke.Transparency = 1
+    local grad = Instance.new("UIGradient")
+    grad.Rotation = 90
+    grad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 30)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 20)),
+    })
+    grad.Parent = card
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = UI.StrokeIdle
+    stroke.Thickness = 1
+    stroke.Transparency = 1
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = card
+
+    local accent = Instance.new("Frame")
+    accent.Name = "Accent"
+    accent.BackgroundColor3 = UI.AccentColor
+    accent.BorderSizePixel = 0
+    accent.AnchorPoint = Vector2.new(0, 0.5)
+    accent.Position = UDim2.new(0, 3, 0.5, 0)
+    accent.Size = UDim2.new(0, 2, 0, 12)
+    accent.Visible = false
+    accent.Parent = card
+
+    local ac = Instance.new("UICorner")
+    ac.CornerRadius = UDim.new(1, 0)
+    ac.Parent = accent
+
+    local baseX = SUB_CONTENT_X
+    local imgAsset = resolveImage(iconImg)
+    local sImg = nil
+    if imgAsset then
+        sImg = Instance.new("ImageLabel")
+        sImg.Name = "Icon"
+        sImg.BackgroundTransparency = 1
+        sImg.AnchorPoint = Vector2.new(0, 0.5)
+        sImg.Position = UDim2.new(0, baseX, 0.5, 0)
+        sImg.Size = UDim2.new(0, UI.IconSize, 0, UI.IconSize)
+        sImg.Image = imgAsset
+        sImg.ImageColor3 = UI.SubIdleColor
+        sImg.Parent = card
+    end
+
+    local textX = imgAsset and (baseX + ICON_SLOT) or (baseX + 2)
+    local sTxt = nil
+    if textStr then
+        sTxt = Instance.new("TextLabel")
+        sTxt.Name = "Label"
+        sTxt.BackgroundTransparency = 1
+        sTxt.AnchorPoint = Vector2.new(0, 0.5)
+        sTxt.Position = UDim2.new(0, textX, 0.5, 0)
+        sTxt.Size = UDim2.new(1, -(textX + 8), 1, 0)
+        sTxt.Font = UI.ItemFont
+        sTxt.TextSize = UI.ItemSize
+        sTxt.TextXAlignment = Enum.TextXAlignment.Left
+        sTxt.TextYAlignment = Enum.TextYAlignment.Center
+        sTxt.Text = textStr
+        sTxt.TextColor3 = UI.SubIdleColor
+        sTxt.Parent = card
+    end
+
+    state.MiniButtons[formattedId] = {
+        Card = card, Stroke = stroke, Accent = accent, Img = sImg, Txt = sTxt,
+    }
 
     local btn = Instance.new("TextButton")
     btn.Name = formattedId
@@ -902,23 +1111,186 @@ function Lib:Tab(textStr, iconImg, callback)
     btn.Size = UDim2.new(1, 0, 1, 0)
     btn.Parent = card
 
+    btn.MouseEnter:Connect(function()
+        if state.CurrentActiveId == formattedId then return end
+        card.BackgroundColor3 = UI.SubHoverBg
+        ts:Create(card, HOVER_INFO, {BackgroundTransparency = 0.15}):Play()
+        ts:Create(stroke, HOVER_INFO, {Transparency = 0.4, Color = UI.StrokeHover}):Play()
+    end)
+
+    btn.MouseLeave:Connect(function()
+        if state.CurrentActiveId == formattedId then return end
+        ts:Create(card, HOVER_INFO, {BackgroundTransparency = 1}):Play()
+        ts:Create(stroke, HOVER_INFO, {Transparency = 1}):Play()
+    end)
+
     btn.MouseButton1Click:Connect(function()
         switchTargetFrame(formattedId)
-        if callback then task.spawn(callback) end
+        if callback then
+            task.spawn(callback)
+        end
     end)
 
     if curSec.IsExpanded then
-        local count = curSec.SubCount
-        curSec.Frame.Size = UDim2.new(1, 0, 0, UI.HeaderHeight + (count * UI.RowHeight) + (math.max(0, count - 1) * UI.SubPadding) + 6)
+        local targetOpen = UI.HeaderHeight + (curSec.SubCount * UI.RowHeight) + (math.max(0, curSec.SubCount - 1) * UI.SubPadding) + 6
+        curSec.Frame.Size = UDim2.new(1, 0, 0, targetOpen)
     end
-    
+
     if state.OpenFirst and not state.ScheduledAutoSelect then
         state.ScheduledAutoSelect = true
-        task.delay(0.1, function() switchTargetFrame("001") end)
+        task.delay(0.1, function()
+            switchTargetFrame("001")
+            local firstSec = state.Sections[1]
+            if firstSec and firstSec.FirstCallback then
+                task.spawn(firstSec.FirstCallback)
+            end
+        end)
     end
     
     state.LastCreatedType = "Tab"
     state.LastCreatedTabId = formattedId
+end
+
+function Lib:Button(textStr, iconImg, callback)
+    initGUI()
+    if type(iconImg) == "function" then
+        callback = iconImg
+        iconImg = nil
+    end
+
+    local curSec = state.CurrentSection
+    if not curSec then return end
+
+    curSec.SubCount = curSec.SubCount + 1
+
+    local subLine = Instance.new("Frame")
+    subLine.Name = "ButtonLine"
+    subLine.BackgroundTransparency = 1
+    subLine.Size = UDim2.new(1, 0, 0, UI.RowHeight)
+    subLine.LayoutOrder = curSec.SubCount
+    subLine.Parent = curSec.Container
+
+    local card = Instance.new("Frame")
+    card.Name = "Card"
+    card.BackgroundColor3 = UI.SubHoverBg
+    card.BackgroundTransparency = 1
+    card.AnchorPoint = Vector2.new(0, 0.5)
+    card.Position = UDim2.new(0, CARD_X, 0.5, 0)
+    card.Size = UDim2.new(1, -(CARD_X + CARD_PAD_R), 0, UI.CardHeight)
+    card.Parent = subLine
+
+    local cc = Instance.new("UICorner")
+    cc.CornerRadius = UDim.new(0, 6)
+    cc.Parent = card
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = UI.StrokeIdle
+    stroke.Thickness = 1
+    stroke.Transparency = 1
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = card
+
+    local baseX = SUB_CONTENT_X
+    local imgAsset = resolveImage(iconImg)
+    local sImg = nil
+    if imgAsset then
+        sImg = Instance.new("ImageLabel")
+        sImg.Name = "Icon"
+        sImg.BackgroundTransparency = 1
+        sImg.AnchorPoint = Vector2.new(0, 0.5)
+        sImg.Position = UDim2.new(0, baseX, 0.5, 0)
+        sImg.Size = UDim2.new(0, UI.IconSize, 0, UI.IconSize)
+        sImg.Image = imgAsset
+        sImg.ImageColor3 = UI.SubIdleColor
+        sImg.Parent = card
+    end
+
+    local textX = imgAsset and (baseX + ICON_SLOT) or (baseX + 2)
+    local sTxt = Instance.new("TextLabel")
+    sTxt.Name = "Label"
+    sTxt.BackgroundTransparency = 1
+    sTxt.AnchorPoint = Vector2.new(0, 0.5)
+    sTxt.Position = UDim2.new(0, textX, 0.5, 0)
+    sTxt.Size = UDim2.new(1, -(textX + 8), 1, 0)
+    sTxt.Font = UI.ItemFont
+    sTxt.TextSize = UI.ItemSize
+    sTxt.TextXAlignment = Enum.TextXAlignment.Left
+    sTxt.TextYAlignment = Enum.TextYAlignment.Center
+    sTxt.Text = textStr or ""
+    sTxt.TextColor3 = UI.SubIdleColor
+    sTxt.Parent = card
+
+    local btn = Instance.new("TextButton")
+    btn.Name = "ActionBtn"
+    btn.BackgroundTransparency = 1
+    btn.Text = ""
+    btn.Size = UDim2.new(1, 0, 1, 0)
+    btn.Parent = card
+
+    btn.MouseEnter:Connect(function()
+        ts:Create(card, HOVER_INFO, {BackgroundTransparency = 0.2}):Play()
+        ts:Create(stroke, HOVER_INFO, {Transparency = 0.4, Color = UI.StrokeHover}):Play()
+    end)
+
+    btn.MouseLeave:Connect(function()
+        ts:Create(card, HOVER_INFO, {BackgroundTransparency = 1}):Play()
+        ts:Create(stroke, HOVER_INFO, {Transparency = 1}):Play()
+    end)
+
+    btn.MouseButton1Click:Connect(function()
+        ts:Create(card, TweenInfo.new(0.08), {BackgroundTransparency = 0}):Play()
+        task.delay(0.08, function()
+            ts:Create(card, TweenInfo.new(0.15), {BackgroundTransparency = 0.2}):Play()
+        end)
+        if callback then
+            task.spawn(callback)
+        end
+    end)
+
+    if curSec.IsExpanded then
+        local targetOpen = UI.HeaderHeight + (curSec.SubCount * UI.RowHeight) + (math.max(0, curSec.SubCount - 1) * UI.SubPadding) + 6
+        curSec.Frame.Size = UDim2.new(1, 0, 0, targetOpen)
+    end
+end
+
+function Lib:Text(textStr)
+    initGUI()
+    local curSec = state.CurrentSection
+    if not curSec then return end
+
+    curSec.SubCount = curSec.SubCount + 1
+
+    local subLine = Instance.new("Frame")
+    subLine.Name = "TextLine"
+    subLine.BackgroundTransparency = 1
+    subLine.Size = UDim2.new(1, 0, 0, UI.RowHeight - 4)
+    subLine.LayoutOrder = curSec.SubCount
+    subLine.Parent = curSec.Container
+
+    local txt = Instance.new("TextLabel")
+    txt.Name = "Label"
+    txt.BackgroundTransparency = 1
+    txt.AnchorPoint = Vector2.new(0, 0.5)
+    txt.Position = UDim2.new(0, SUB_CONTENT_X + 2, 0.5, 0)
+    txt.Size = UDim2.new(1, -SUB_CONTENT_X, 1, 0)
+    txt.Font = Enum.Font.Gotham
+    txt.TextSize = 11
+    txt.TextXAlignment = Enum.TextXAlignment.Left
+    txt.TextYAlignment = Enum.TextYAlignment.Center
+    txt.Text = textStr or ""
+    txt.TextColor3 = Color3.fromRGB(110, 110, 120)
+    txt.Parent = subLine
+
+    if curSec.IsExpanded then
+        local targetOpen = UI.HeaderHeight + (curSec.SubCount * UI.RowHeight) + (math.max(0, curSec.SubCount - 1) * UI.SubPadding) + 6
+        curSec.Frame.Size = UDim2.new(1, 0, 0, targetOpen)
+    end
+
+    return {
+        SetText = function(_, newText)
+            txt.Text = newText
+        end
+    }
 end
 
 local function CreateInternalGroup(tabFrame, titleText)
@@ -926,7 +1298,8 @@ local function CreateInternalGroup(tabFrame, titleText)
 
     local groupFrame = Instance.new("Frame")
     groupFrame.Name = "Group_" .. tostring(titleText)
-    groupFrame.Size = state.NextGroupGrid and UDim2.new(0.5, -5, 0, 0) or UDim2.new(1, 0, 0, 0)
+    -- Сетка работает здесь: 50% ширины если net(true), иначе 100%
+    groupFrame.Size = state.IsGrid and UDim2.new(0.5, -5, 0, 0) or UDim2.new(1, 0, 0, 0)
     groupFrame.AutomaticSize = Enum.AutomaticSize.Y
     groupFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 18)
     groupFrame.BorderSizePixel = 0
@@ -985,7 +1358,6 @@ local function CreateInternalGroup(tabFrame, titleText)
     padding.Parent = groupFrame
 
     state.CurrentGroup = container
-    state.LastCreatedGroup = groupFrame 
 end
 
 function Lib:Group(titleText)
@@ -994,31 +1366,25 @@ end
 
 for i = 1, 50 do
     Lib["Group" .. i] = function(self, titleText)
-        local targetTabFrame = state.CurrentSectionTabs[i]
+        -- Теперь берём таб из текущей секции, а не глобально
+        local targetTabId = state.CurrentSectionTabIds[i]
+        local targetTabFrame = targetTabId and state.Frames["F" .. targetTabId] or state.CurrentTabFrame
         CreateInternalGroup(targetTabFrame, titleText)
     end
 end
 
-function Lib:Label(textStr, callback)
+function Lib:Label(textStr)
     if not state.CurrentGroup then return end
 
-    local isButton = type(callback) == "function"
-    local lbl = Instance.new(isButton and "TextButton" or "TextLabel")
+    local lbl = Instance.new("TextLabel")
     lbl.Size = UDim2.new(1, 0, 0, 18)
     lbl.BackgroundTransparency = 1
     lbl.Font = Enum.Font.GothamMedium
     lbl.TextSize = 12
     lbl.TextColor3 = Color3.fromRGB(150, 150, 150)
     lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Text = tostring(textStr)
+    lbl.Text = textStr
     lbl.Parent = state.CurrentGroup
-    
-    if isButton then
-        lbl.AutoButtonColor = false
-        lbl.MouseEnter:Connect(function() lbl.TextColor3 = Color3.fromRGB(255, 255, 255) end)
-        lbl.MouseLeave:Connect(function() lbl.TextColor3 = Color3.fromRGB(150, 150, 150) end)
-        lbl.MouseButton1Click:Connect(callback)
-    end
 end
 
 initGUI()
