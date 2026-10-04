@@ -67,7 +67,6 @@ local state = {
     GuiToggleConn = nil,
 }
 
--- === ВСТРОЕННЫЙ ГЕНЕРАТОР СЕТКИ ===
 local function ApplyNetEffect(parentFrame)
     if parentFrame:FindFirstChild("NetEffectFolder") then return end
 
@@ -145,7 +144,6 @@ local function ApplyNetEffect(parentFrame)
         end
     end)
 end
--- ===================================
 
 local function resolveImage(img)
     if not img then return nil end
@@ -370,6 +368,113 @@ local function initGUI()
     topDividerGradient.Rotation = 0
     topDividerGradient.Parent = topDividerLine
 
+    local logo = Instance.new("Frame")
+    logo.Name = "Logo"
+    logo.Size = UDim2.new(0, 135, 0, 70)
+    logo.Position = UDim2.new(0, 8, 0, 10)
+    logo.BackgroundTransparency = 1
+    logo.BorderSizePixel = 0
+    logo.ZIndex = 2
+    logo.Parent = sidebar
+
+    local logoDivider = Instance.new("Frame")
+    logoDivider.Name = "LogoDividerStroke"
+    logoDivider.Size = UDim2.new(0, 125, 0, 1)
+    logoDivider.Position = UDim2.new(0, 13, 0, 88)
+    logoDivider.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    logoDivider.BorderSizePixel = 0
+    logoDivider.ZIndex = 2
+    logoDivider.Parent = sidebar
+
+    local logoDivGradient = Instance.new("UIGradient")
+    logoDivGradient.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.15, 0.4),
+        NumberSequenceKeypoint.new(0.85, 0.4),
+        NumberSequenceKeypoint.new(1, 1)
+    })
+    logoDivGradient.Rotation = 0
+    logoDivGradient.Parent = logoDivider
+
+    local shadowRoot = Instance.new("Frame")
+    shadowRoot.Name = "E_ShadowRoot"
+    shadowRoot.BackgroundTransparency = 1
+    shadowRoot.Size = UDim2.new(0, 70, 0, 70)
+    shadowRoot.Position = UDim2.new(0.5, -34, 0.5, -33)
+    shadowRoot.ZIndex = 2
+    shadowRoot.Parent = logo
+
+    local root = Instance.new("Frame")
+    root.Name = "E_Root"
+    root.BackgroundTransparency = 1
+    root.Size = UDim2.new(0, 70, 0, 70)
+    root.Position = UDim2.new(0.5, -35, 0.5, -35)
+    root.ZIndex = 3
+    root.Parent = logo
+
+    local function buildLogoE(parentContainer, boxColor, triColor, zIdx)
+        local function makeBox(name, x, y, w, h)
+            local f = Instance.new("Frame")
+            f.Name = name
+            f.BackgroundColor3 = boxColor
+            f.BorderSizePixel = 0
+            f.Position = UDim2.new(0, x, 0, y)
+            f.Size = UDim2.new(0, w, 0, h)
+            f.ZIndex = zIdx
+            f.Parent = parentContainer
+            return f
+        end
+
+        local function makeTriangle(name, x, y, size, rotation)
+            local tri = Instance.new("ImageLabel")
+            tri.Name = name
+            tri.BackgroundTransparency = 1
+            tri.BorderSizePixel = 0
+            tri.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+            tri.ImageColor3 = triColor
+            tri.Position = UDim2.new(0, x, 0, y)
+            tri.Size = UDim2.new(0, size, 0, size)
+            tri.ZIndex = zIdx
+
+            local grad = Instance.new("UIGradient")
+            grad.Rotation = rotation
+            grad.Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0.0, 0),
+                NumberSequenceKeypoint.new(0.5, 0),
+                NumberSequenceKeypoint.new(0.501, 1),
+                NumberSequenceKeypoint.new(1.0, 1)
+            })
+            grad.Parent = tri
+            tri.Parent = parentContainer
+            return tri
+        end
+
+        local spineX = 14
+        local spineY = 10
+        local spineW = 12
+        local spineH = 50
+        local barH = 10
+
+        local function makeCutBar(prefix, y, totalLen)
+            local bodyLen = totalLen - barH
+            makeBox(prefix .. "_Bar", spineX + spineW, y, bodyLen, barH)
+            makeTriangle(prefix .. "_Slope", spineX + spineW + bodyLen, y, barH, 45)
+        end
+
+        makeBox("E_Spine", spineX, spineY, spineW, spineH)
+        makeTriangle("E_WingSlope", spineX - barH, spineY, barH, 135)
+        makeCutBar("E_Top", spineY, 40)
+
+        local midY = spineY + math.floor((spineH - barH) / 2)
+        makeCutBar("E_Mid", midY, 30)
+
+        local botY = spineY + spineH - barH
+        makeCutBar("E_Bot", botY, 20)
+    end
+
+    buildLogoE(shadowRoot, Color3.fromRGB(25, 25, 30), Color3.fromRGB(25, 25, 30), 2)
+    buildLogoE(root, Color3.fromRGB(240, 240, 245), Color3.fromRGB(255, 255, 255), 3)
+
     local sf = Instance.new("ScrollingFrame")
     sf.Name = "Sidebar"
     sf.Size = UDim2.new(1, -6, 1, -150)
@@ -407,7 +512,277 @@ local function initGUI()
     ml:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateScroll)
     sf:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(updateScroll)
 
-    -- Декоративные элементы (закрытия/драггинг/логотипы и прочее оставлено без изменений для стабильности)
+    local profileCard = Instance.new("Frame")
+    profileCard.Name = "ProfileCard"
+    profileCard.Size = UDim2.new(0, 135, 0, 44)
+    profileCard.Position = UDim2.new(0, 8, 1, -52)
+    profileCard.BackgroundColor3 = Color3.fromRGB(16, 16, 20)
+    profileCard.BackgroundTransparency = 0.5
+    profileCard.BorderSizePixel = 0
+    profileCard.ClipsDescendants = true
+    profileCard.ZIndex = 3
+    profileCard.Parent = sidebar
+
+    local cardCorner = Instance.new("UICorner")
+    cardCorner.CornerRadius = UDim.new(0, 8)
+    cardCorner.Parent = profileCard
+    addUIStroke(profileCard, Color3.fromRGB(45, 45, 55), 1, 0.3, 0)
+
+    local avatarImg = Instance.new("ImageLabel")
+    avatarImg.Name = "PortAvatar"
+    avatarImg.Size = UDim2.new(0, 32, 0, 32)
+    avatarImg.Position = UDim2.new(0, 6, 0.5, 0)
+    avatarImg.AnchorPoint = Vector2.new(0, 0.5)
+    avatarImg.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+    avatarImg.BorderSizePixel = 0
+    avatarImg.ScaleType = Enum.ScaleType.Fit
+    avatarImg.ZIndex = 4
+    avatarImg.Parent = profileCard
+
+    local avatarCorner = Instance.new("UICorner")
+    avatarCorner.CornerRadius = UDim.new(1, 0)
+    avatarCorner.Parent = avatarImg
+
+    local helloLabel = Instance.new("TextLabel")
+    helloLabel.Name = "HelloLabel"
+    helloLabel.Size = UDim2.new(1, -50, 0, 14)
+    helloLabel.Position = UDim2.new(0, 44, 0, 7)
+    helloLabel.BackgroundTransparency = 1
+    helloLabel.Font = Enum.Font.GothamMedium
+    helloLabel.Text = "Hello"
+    helloLabel.TextColor3 = Color3.fromRGB(110, 110, 120)
+    helloLabel.TextSize = 12
+    helloLabel.TextXAlignment = Enum.TextXAlignment.Left
+    helloLabel.ZIndex = 4
+    helloLabel.Parent = profileCard
+
+    local nickLabel = Instance.new("TextLabel")
+    nickLabel.Name = "Nick"
+    nickLabel.Size = UDim2.new(1, -52, 0, 16)
+    nickLabel.Position = UDim2.new(0, 44, 0, 21)
+    nickLabel.BackgroundTransparency = 1
+    nickLabel.Font = Enum.Font.GothamBold
+    nickLabel.Text = (p and p.Name) or "Player"
+    nickLabel.TextColor3 = Color3.fromRGB(240, 240, 245)
+    nickLabel.TextScaled = true
+    nickLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    nickLabel.TextXAlignment = Enum.TextXAlignment.Left
+    nickLabel.ZIndex = 4
+    nickLabel.Parent = profileCard
+
+    local nickSizeConstraint = Instance.new("UITextSizeConstraint")
+    nickSizeConstraint.MaxTextSize = 13
+    nickSizeConstraint.MinTextSize = 8
+    nickSizeConstraint.Parent = nickLabel
+
+    task.spawn(function()
+        pcall(function()
+            local success, thumbnail = pcall(function()
+                return playersService:GetUserThumbnailAsync(
+                    p.UserId,
+                    Enum.ThumbnailType.HeadShot,
+                    Enum.ThumbnailSize.Size150x150
+                )
+            end)
+            if success and thumbnail then
+                avatarImg.Image = thumbnail
+            end
+        end)
+    end)
+
+    local fone = Instance.new("Frame")
+    fone.Name = "Fone"
+    fone.Size = UDim2.new(0, 115, 0, 15)
+    fone.AnchorPoint = Vector2.new(0.5, 0)
+    fone.Position = UDim2.new(0.5, 0, 1, 0)
+    fone.BackgroundColor3 = Color3.fromRGB(6, 6, 8)
+    fone.BorderSizePixel = 0
+    fone.ZIndex = 60
+    fone.Parent = f2
+
+    local c3 = Instance.new("UICorner")
+    c3.CornerRadius = UDim.new(0, 9)
+    c3.Parent = fone
+    addUIStroke(fone, Color3.fromRGB(45, 45, 55), 1, 0.4, 0)
+
+    local cffone = Instance.new("Frame")
+    cffone.Size = UDim2.new(1, 0, 0, 9)
+    cffone.Position = UDim2.new(0, 0, 0, 0)
+    cffone.BackgroundColor3 = Color3.fromRGB(6, 6, 8)
+    cffone.BorderSizePixel = 0
+    cffone.ZIndex = 60
+    cffone.Parent = fone
+
+    local closeFrame = Instance.new("Frame")
+    closeFrame.Name = "Close"
+    closeFrame.Size = UDim2.new(0, 30, 1, 0)
+    closeFrame.Position = UDim2.new(0, 0, 0, 0)
+    closeFrame.BackgroundTransparency = 1
+    closeFrame.ZIndex = 61
+    closeFrame.Parent = fone
+
+    local closeImg = Instance.new("ImageLabel")
+    closeImg.AnchorPoint = Vector2.new(0, 0.5)
+    closeImg.Position = UDim2.new(0, 7, 0.5, 0)
+    closeImg.Size = UDim2.new(0, 11, 0, 11)
+    closeImg.BackgroundTransparency = 1
+    closeImg.Image = "rbxassetid://116396312853810"
+    closeImg.ScaleType = Enum.ScaleType.Fit
+    closeImg.ZIndex = 61
+    closeImg.Parent = closeFrame
+
+    local hitBoxC = Instance.new("TextButton")
+    hitBoxC.Name = "CloseHitbox"
+    hitBoxC.BackgroundTransparency = 1
+    hitBoxC.Text = ""
+    hitBoxC.Size = UDim2.new(1, 0, 1, 0)
+    hitBoxC.ZIndex = 62
+    hitBoxC.Parent = closeFrame
+    hitBoxC.Activated:Connect(function()
+        if state.GuiToggleConn then
+            state.GuiToggleConn:Disconnect()
+            state.GuiToggleConn = nil
+        end
+        if s then s:Destroy() end
+    end)
+
+    local minusFrame = Instance.new("Frame")
+    minusFrame.Name = "Minus"
+    minusFrame.Size = UDim2.new(0, 30, 1, 0)
+    minusFrame.Position = UDim2.new(1, -30, 0, 0)
+    minusFrame.BackgroundTransparency = 1
+    minusFrame.ZIndex = 61
+    minusFrame.Parent = fone
+
+    local minusImg = Instance.new("ImageLabel")
+    minusImg.AnchorPoint = Vector2.new(1, 0.5)
+    minusImg.Position = UDim2.new(1, -7, 0.5, 0)
+    minusImg.Size = UDim2.new(0, 11, 0, 11)
+    minusImg.BackgroundTransparency = 1
+    minusImg.Image = "rbxassetid://95070996149109"
+    minusImg.ScaleType = Enum.ScaleType.Fit
+    minusImg.ZIndex = 61
+    minusImg.Parent = minusFrame
+
+    local hitBoxMinus = Instance.new("TextButton")
+    hitBoxMinus.Name = "MinusHitbox"
+    hitBoxMinus.BackgroundTransparency = 1
+    hitBoxMinus.Text = ""
+    hitBoxMinus.Size = UDim2.new(1, 0, 1, 0)
+    hitBoxMinus.ZIndex = 62
+    hitBoxMinus.Parent = minusFrame
+
+    local isCollapsed = false
+    local tweenBusy = false
+    local animInfo = TweenInfo.new(0.35, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
+
+    hitBoxMinus.Activated:Connect(function()
+        if tweenBusy then return end
+        tweenBusy = true
+
+        local targetWidth = isCollapsed and 651 or 500
+        local targetCfTransparency = isCollapsed and 0 or 1
+        local targetStrokeF2 = isCollapsed and 1 or 0.35
+        local targetStrokeF1 = isCollapsed and 0.35 or 1
+
+        local curX = f1.Position.X.Offset
+        local curY = f1.Position.Y.Offset
+        local rightEdge = curX + f1.Size.X.Offset
+        local targetX = math.max(0, rightEdge - targetWidth)
+
+        local twFrame = ts:Create(f1, animInfo, {
+            Size = UDim2.new(0, targetWidth, 0, 450),
+            Position = UDim2.new(0, targetX, 0, curY)
+        })
+        local twCorner = ts:Create(cf, animInfo, {BackgroundTransparency = targetCfTransparency})
+        local twStrokeF1 = ts:Create(strokeF1, animInfo, {Transparency = targetStrokeF1})
+        local twStrokeF2 = ts:Create(strokeF2, animInfo, {Transparency = targetStrokeF2})
+
+        twFrame:Play()
+        twCorner:Play()
+        twStrokeF1:Play()
+        twStrokeF2:Play()
+
+        twFrame.Completed:Connect(function()
+            isCollapsed = not isCollapsed
+            tweenBusy = false
+        end)
+    end)
+
+    local moveFrame = Instance.new("Frame")
+    moveFrame.Name = "Move"
+    moveFrame.Size = UDim2.new(0, 30, 1, 0)
+    moveFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    moveFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    moveFrame.BackgroundTransparency = 1
+    moveFrame.ZIndex = 61
+    moveFrame.Parent = fone
+
+    local moveImg = Instance.new("ImageLabel")
+    moveImg.AnchorPoint = Vector2.new(0.5, 0.5)
+    moveImg.Position = UDim2.new(0.5, 0, 0.5, 0)
+    moveImg.Size = UDim2.new(0, 11, 0, 11)
+    moveImg.BackgroundTransparency = 1
+    moveImg.Image = "rbxassetid://77028714324861"
+    moveImg.ScaleType = Enum.ScaleType.Fit
+    moveImg.ZIndex = 61
+    moveImg.Parent = moveFrame
+
+    local hitBoxM = Instance.new("TextButton")
+    hitBoxM.Name = "DragHitbox"
+    hitBoxM.BackgroundTransparency = 1
+    hitBoxM.Text = ""
+    hitBoxM.Size = UDim2.new(1, 0, 1, 0)
+    hitBoxM.ZIndex = 62
+    hitBoxM.Parent = moveFrame
+
+    local isDragging = false
+    local dragStartMouse = nil
+    local dragStartFrame = nil
+
+    local function updateDrag(input)
+        local delta = input.Position - dragStartMouse
+        local targetX = math.round(dragStartFrame.X + delta.X)
+        local targetY = math.round(dragStartFrame.Y + delta.Y)
+
+        local scrSize = (s and s.AbsoluteSize) or cam.ViewportSize
+        local inset = gs:GetGuiInset()
+        local screenW = scrSize.X
+        local screenH = scrSize.Y - inset.Y
+
+        local frameW = f1.Size.X.Offset
+        local frameH = f1.Size.Y.Offset
+
+        local clampedX = math.clamp(targetX, 0, math.max(0, screenW - frameW))
+        local clampedY = math.clamp(targetY, 0, math.max(0, screenH - frameH))
+
+        f1.Position = UDim2.new(0, clampedX, 0, clampedY)
+    end
+
+    hitBoxM.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isDragging = true
+            dragStartMouse = input.Position
+            dragStartFrame = Vector2.new(f1.Position.X.Offset, f1.Position.Y.Offset)
+
+            local moveConn
+            local endConn
+
+            moveConn = uis.InputChanged:Connect(function(moveInput)
+                if (moveInput.UserInputType == Enum.UserInputType.MouseMovement or moveInput.UserInputType == Enum.UserInputType.Touch) and isDragging then
+                    updateDrag(moveInput)
+                end
+            end)
+
+            endConn = uis.InputEnded:Connect(function(endInput)
+                if endInput.UserInputType == Enum.UserInputType.MouseButton1 or endInput.UserInputType == Enum.UserInputType.Touch then
+                    isDragging = false
+                    if moveConn then moveConn:Disconnect() end
+                    if endConn then endConn:Disconnect() end
+                end
+            end)
+        end
+    end)
 end
 
 function Lib:Sidebar(openFirst)
@@ -564,8 +939,7 @@ function Lib:Section(titleText, iconImg)
 
     table.insert(state.Sections, sectionObj)
     state.CurrentSection = sectionObj
-    
-    -- === ВОТ ТУТ ДОБАВЛЕНА ПОДДЕРЖКА :net(bool) ===
+
     sectionObj.net = function(self, isEnabled)
         if type(self) == "boolean" then isEnabled = self end
         if not isEnabled then return sectionObj end
@@ -615,6 +989,14 @@ function Lib:Tab(textStr, iconImg, callback)
     cc.CornerRadius = UDim.new(0, 6)
     cc.Parent = card
 
+    local grad = Instance.new("UIGradient")
+    grad.Rotation = 90
+    grad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 30)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 20)),
+    })
+    grad.Parent = card
+
     local stroke = Instance.new("UIStroke")
     stroke.Color = UI.StrokeIdle
     stroke.Thickness = 1
@@ -631,6 +1013,10 @@ function Lib:Tab(textStr, iconImg, callback)
     accent.Size = UDim2.new(0, 2, 0, 12)
     accent.Visible = false
     accent.Parent = card
+
+    local ac = Instance.new("UICorner")
+    ac.CornerRadius = UDim.new(1, 0)
+    ac.Parent = accent
 
     local baseX = SUB_CONTENT_X
     local imgAsset = resolveImage(iconImg)
@@ -715,7 +1101,6 @@ function Lib:Tab(textStr, iconImg, callback)
         end)
     end
 
-    -- === И ТУТ ДОБАВЛЕНА ПОДДЕРЖКА :net(bool) ===
     local tabObj = {}
     tabObj.net = function(self, isEnabled)
         if type(self) == "boolean" then isEnabled = self end
@@ -726,8 +1111,7 @@ function Lib:Tab(textStr, iconImg, callback)
             local targetFrame = nil
             
             for i = 1, 50 do
-                refreshFramesRegistry()
-                if state.Frames[targetName] then
+                if state.Frames and state.Frames[targetName] then
                     targetFrame = state.Frames[targetName]
                     break
                 end
@@ -743,6 +1127,148 @@ function Lib:Tab(textStr, iconImg, callback)
     end
 
     return tabObj
+end
+
+function Lib:Button(textStr, iconImg, callback)
+    initGUI()
+    if type(iconImg) == "function" then
+        callback = iconImg
+        iconImg = nil
+    end
+
+    local curSec = state.CurrentSection
+    if not curSec then return end
+
+    curSec.SubCount = curSec.SubCount + 1
+
+    local subLine = Instance.new("Frame")
+    subLine.Name = "ButtonLine"
+    subLine.BackgroundTransparency = 1
+    subLine.Size = UDim2.new(1, 0, 0, UI.RowHeight)
+    subLine.LayoutOrder = curSec.SubCount
+    subLine.Parent = curSec.Container
+
+    local card = Instance.new("Frame")
+    card.Name = "Card"
+    card.BackgroundColor3 = UI.SubHoverBg
+    card.BackgroundTransparency = 1
+    card.AnchorPoint = Vector2.new(0, 0.5)
+    card.Position = UDim2.new(0, CARD_X, 0.5, 0)
+    card.Size = UDim2.new(1, -(CARD_X + CARD_PAD_R), 0, UI.CardHeight)
+    card.Parent = subLine
+
+    local cc = Instance.new("UICorner")
+    cc.CornerRadius = UDim.new(0, 6)
+    cc.Parent = card
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = UI.StrokeIdle
+    stroke.Thickness = 1
+    stroke.Transparency = 1
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = card
+
+    local baseX = SUB_CONTENT_X
+    local imgAsset = resolveImage(iconImg)
+    local sImg = nil
+    if imgAsset then
+        sImg = Instance.new("ImageLabel")
+        sImg.Name = "Icon"
+        sImg.BackgroundTransparency = 1
+        sImg.AnchorPoint = Vector2.new(0, 0.5)
+        sImg.Position = UDim2.new(0, baseX, 0.5, 0)
+        sImg.Size = UDim2.new(0, UI.IconSize, 0, UI.IconSize)
+        sImg.Image = imgAsset
+        sImg.ImageColor3 = UI.SubIdleColor
+        sImg.Parent = card
+    end
+
+    local textX = imgAsset and (baseX + ICON_SLOT) or (baseX + 2)
+    local sTxt = Instance.new("TextLabel")
+    sTxt.Name = "Label"
+    sTxt.BackgroundTransparency = 1
+    sTxt.AnchorPoint = Vector2.new(0, 0.5)
+    sTxt.Position = UDim2.new(0, textX, 0.5, 0)
+    sTxt.Size = UDim2.new(1, -(textX + 8), 1, 0)
+    sTxt.Font = UI.ItemFont
+    sTxt.TextSize = UI.ItemSize
+    sTxt.TextXAlignment = Enum.TextXAlignment.Left
+    sTxt.TextYAlignment = Enum.TextYAlignment.Center
+    sTxt.Text = textStr or ""
+    sTxt.TextColor3 = UI.SubIdleColor
+    sTxt.Parent = card
+
+    local btn = Instance.new("TextButton")
+    btn.Name = "ActionBtn"
+    btn.BackgroundTransparency = 1
+    btn.Text = ""
+    btn.Size = UDim2.new(1, 0, 1, 0)
+    btn.Parent = card
+
+    btn.MouseEnter:Connect(function()
+        ts:Create(card, HOVER_INFO, {BackgroundTransparency = 0.2}):Play()
+        ts:Create(stroke, HOVER_INFO, {Transparency = 0.4, Color = UI.StrokeHover}):Play()
+    end)
+
+    btn.MouseLeave:Connect(function()
+        ts:Create(card, HOVER_INFO, {BackgroundTransparency = 1}):Play()
+        ts:Create(stroke, HOVER_INFO, {Transparency = 1}):Play()
+    end)
+
+    btn.MouseButton1Click:Connect(function()
+        ts:Create(card, TweenInfo.new(0.08), {BackgroundTransparency = 0}):Play()
+        task.delay(0.08, function()
+            ts:Create(card, TweenInfo.new(0.15), {BackgroundTransparency = 0.2}):Play()
+        end)
+        if callback then
+            task.spawn(callback)
+        end
+    end)
+
+    if curSec.IsExpanded then
+        local targetOpen = UI.HeaderHeight + (curSec.SubCount * UI.RowHeight) + (math.max(0, curSec.SubCount - 1) * UI.SubPadding) + 6
+        curSec.Frame.Size = UDim2.new(1, 0, 0, targetOpen)
+    end
+end
+
+function Lib:Text(textStr)
+    initGUI()
+    local curSec = state.CurrentSection
+    if not curSec then return end
+
+    curSec.SubCount = curSec.SubCount + 1
+
+    local subLine = Instance.new("Frame")
+    subLine.Name = "TextLine"
+    subLine.BackgroundTransparency = 1
+    subLine.Size = UDim2.new(1, 0, 0, UI.RowHeight - 4)
+    subLine.LayoutOrder = curSec.SubCount
+    subLine.Parent = curSec.Container
+
+    local txt = Instance.new("TextLabel")
+    txt.Name = "Label"
+    txt.BackgroundTransparency = 1
+    txt.AnchorPoint = Vector2.new(0, 0.5)
+    txt.Position = UDim2.new(0, SUB_CONTENT_X + 2, 0.5, 0)
+    txt.Size = UDim2.new(1, -SUB_CONTENT_X, 1, 0)
+    txt.Font = Enum.Font.Gotham
+    txt.TextSize = 11
+    txt.TextXAlignment = Enum.TextXAlignment.Left
+    txt.TextYAlignment = Enum.TextYAlignment.Center
+    txt.Text = textStr or ""
+    txt.TextColor3 = Color3.fromRGB(110, 110, 120)
+    txt.Parent = subLine
+
+    if curSec.IsExpanded then
+        local targetOpen = UI.HeaderHeight + (curSec.SubCount * UI.RowHeight) + (math.max(0, curSec.SubCount - 1) * UI.SubPadding) + 6
+        curSec.Frame.Size = UDim2.new(1, 0, 0, targetOpen)
+    end
+
+    return {
+        SetText = function(_, newText)
+            txt.Text = newText
+        end
+    }
 end
 
 initGUI()
