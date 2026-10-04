@@ -3,6 +3,7 @@ local Lib = {}
 local ts = game:GetService("TweenService")
 local uis = game:GetService("UserInputService")
 local gs = game:GetService("GuiService")
+local rs = game:GetService("RunService")
 local cam = workspace.CurrentCamera
 local playersService = game:GetService("Players")
 local p = playersService.LocalPlayer
@@ -10,14 +11,6 @@ local p = playersService.LocalPlayer
 local FIXED_ARROW_ID = "rbxassetid://101007429951147"
 local TWEEN_INFO = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local HOVER_INFO = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local ANIM_INFO = TweenInfo.new(0.35, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
-
-local WINDOW_W = 651
-local WINDOW_H = 450
-local PANEL_W = 500
-local SIDEBAR_W = 151
-local EDGE_CORNER = 9
-local COLLAPSED_OFFSET = -73
 
 local UI = {
     HeaderHeight = 26,
@@ -36,12 +29,15 @@ local UI = {
     AccentColor = Color3.fromRGB(255, 255, 255),
     IconSize = 14,
     IconGap = 8,
-    SectionBottomPad = 6,
     HeaderFont = Enum.Font.GothamBold,
     HeaderSize = 13,
     ItemFont = Enum.Font.GothamMedium,
     ItemFontActive = Enum.Font.GothamBold,
     ItemSize = 12,
+    -- Новые цвета
+    Window002Bg = Color3.fromRGB(10, 10, 12),
+    ContentHeaderBg = Color3.fromRGB(13, 13, 13),
+    BottomBarBg = Color3.fromRGB(13, 13, 13),
 }
 
 local HEADER_LINE_X = 2
@@ -68,13 +64,12 @@ local state = {
     Initialized = false,
     ScheduledAutoSelect = false,
     GuiToggleConn = nil,
+    LastCreatedType = nil,
+    LastCreatedTabId = nil,
     CurrentTabFrame = nil,
     CurrentGroup = nil,
-    IsGrid = false,
-    TabCallbacksRan = {},
+    IsGrid = false
 }
-
-local imageFetchLock = {}
 
 local env = getgenv and getgenv() or _G
 env.net = function(isEnabled)
@@ -86,29 +81,19 @@ local function resolveImage(img)
     local s = tostring(img):match("^%s*(.-)%s*$") or ""
     if s == "" or s == "0" then return nil end
 
-    if (s:find("http://") or s:find("https://")) and writefile and getcustomasset and isfile then
+    if (s:find("http://") or s:find("https://")) and writefile and getcustomasset then
         local ext = s:match("%.([%a%d]+)$") or "png"
         local hash = 0
         for i = 1, #s do
             hash = (hash * 31 + string.byte(s, i)) % 2147483647
         end
         local filename = "custom_lib_img_" .. tostring(hash) .. "." .. ext
-        if isfile(filename) then
-            local ok, asset = pcall(getcustomasset, filename)
-            if ok then return asset end
-        end
-        if not imageFetchLock[filename] then
-            imageFetchLock[filename] = true
-            task.spawn(function()
-                local ok, data = pcall(function() return game:HttpGet(s) end)
-                if ok and data then
-                    pcall(function() writefile(filename, data) end)
-                else
-                    imageFetchLock[filename] = nil
-                end
+        if not isfile or not isfile(filename) then
+            pcall(function()
+                writefile(filename, game:HttpGet(s))
             end)
         end
-        return nil
+        return getcustomasset(filename)
     end
 
     local num = s:match("^image%s+(%d+)\(") or s:match("^(%d+)\)")
@@ -139,6 +124,24 @@ local function addUIStroke(parentFrame, color, thickness, transparency, rotation
     return stroke
 end
 
+local function refreshFramesRegistry()
+    table.clear(state.Frames)
+    local targetParent = (p and p:FindFirstChild("PlayerGui")) or state.ScreenGui
+    if not targetParent then return end
+    for _, d in ipairs(targetParent:GetDescendants()) do
+        if d:IsA("GuiObject") and d.Name:match("^F%d%d%d$") then
+            state.Frames[d.Name] = d
+            if state.Window002 and d.Parent ~= state.Window002 then
+                d.Parent = state.Window002
+                d.Position = UDim2.new(0, 0, 0, 27)
+                d.Size = UDim2.new(1, 0, 1, -27)
+                d.BackgroundTransparency = 1
+                d.BorderSizePixel = 0
+            end
+        end
+    end
+end
+
 local function updateHighlightVisuals()
     for id, data in pairs(state.MiniButtons) do
         local isActive = (id == state.CurrentActiveId)
@@ -158,16 +161,15 @@ local function updateHighlightVisuals()
 end
 
 local function switchTargetFrame(targetNumStr)
-    if state.CurrentActiveId == targetNumStr then return end
-    local targetName = "F" .. targetNumStr
-    local tf = state.Frames[targetName]
-    if not tf then return end
-
     state.CurrentActiveId = targetNumStr
-    for _, f in pairs(state.Frames) do
-        if f.Visible then f.Visible = false end
+    local targetName = "F" .. targetNumStr
+
+    for _, f in pairs(state.Frames) do f.Visible = false end
+
+    local tf = state.Frames[targetName]
+    if tf then
+        tf.Visible = true
     end
-    tf.Visible = true
     updateHighlightVisuals()
 end
 
@@ -201,12 +203,12 @@ local function initGUI()
     end
 
     local screenSize = (s and s.AbsoluteSize) or cam.ViewportSize
-    local startX = math.round((screenSize.X - WINDOW_W) / 2)
-    local startY = math.round((screenSize.Y - WINDOW_H) / 2)
+    local startX = math.round((screenSize.X - 651) / 2)
+    local startY = math.round((screenSize.Y - 450) / 2)
 
     local f1 = Instance.new("Frame")
     f1.Name = "Window001"
-    f1.Size = UDim2.new(0, WINDOW_W, 0, WINDOW_H)
+    f1.Size = UDim2.new(0, 651, 0, 450)
     f1.Position = UDim2.new(0, startX, 0, startY)
     f1.BackgroundColor3 = Color3.fromRGB(12, 12, 15)
     f1.BorderSizePixel = 0
@@ -215,14 +217,14 @@ local function initGUI()
     state.Window001 = f1
 
     local c1 = Instance.new("UICorner")
-    c1.CornerRadius = UDim.new(0, EDGE_CORNER)
+    c1.CornerRadius = UDim.new(0, 9)
     c1.Parent = f1
 
     local strokeF1 = addUIStroke(f1, Color3.fromRGB(50, 50, 60), 1, 0.35, 45)
 
     local sidebar = Instance.new("Frame")
     sidebar.Name = "SidebarContainer"
-    sidebar.Size = UDim2.new(0, SIDEBAR_W, 1, 0)
+    sidebar.Size = UDim2.new(0, 151, 1, 0)
     sidebar.Position = UDim2.new(0, 0, 0, 0)
     sidebar.BackgroundTransparency = 1
     sidebar.BorderSizePixel = 0
@@ -232,9 +234,9 @@ local function initGUI()
 
     local f2 = Instance.new("Frame")
     f2.Name = "Window002"
-    f2.Size = UDim2.new(0, PANEL_W, 0, WINDOW_H)
-    f2.Position = UDim2.new(1, -PANEL_W, 0, 0)
-    f2.BackgroundColor3 = Color3.fromRGB(6, 6, 8)
+    f2.Size = UDim2.new(0, 500, 0, 450)
+    f2.Position = UDim2.new(1, -500, 0, 0)
+    f2.BackgroundColor3 = UI.Window002Bg
     f2.BorderSizePixel = 0
     f2.ClipsDescendants = false
     f2.ZIndex = 50
@@ -242,16 +244,52 @@ local function initGUI()
     state.Window002 = f2
 
     local c2 = Instance.new("UICorner")
-    c2.CornerRadius = UDim.new(0, EDGE_CORNER)
+    c2.CornerRadius = UDim.new(0, 9)
     c2.Parent = f2
 
     local strokeF2 = addUIStroke(f2, Color3.fromRGB(50, 50, 60), 1, 1, 45)
 
+    -- === Верхняя шапка окна контента (13,13,13) ===
+    local contentHeader = Instance.new("Frame")
+    contentHeader.Name = "ContentHeader"
+    contentHeader.Size = UDim2.new(1, 0, 0, 27)
+    contentHeader.Position = UDim2.new(0, 0, 0, 0)
+    contentHeader.BackgroundColor3 = UI.ContentHeaderBg
+    contentHeader.BorderSizePixel = 0
+    contentHeader.ZIndex = 51
+    contentHeader.Parent = f2
+
+    local contentHeaderCorner = Instance.new("UICorner")
+    contentHeaderCorner.CornerRadius = UDim.new(0, 9)
+    contentHeaderCorner.Parent = contentHeader
+
+    -- Квадратим нижние углы шапки (заливка того же цвета снизу)
+    local headerBottomSquare = Instance.new("Frame")
+    headerBottomSquare.Name = "BottomSquare"
+    headerBottomSquare.Size = UDim2.new(1, 0, 0, 9)
+    headerBottomSquare.Position = UDim2.new(0, 0, 1, -9)
+    headerBottomSquare.BackgroundColor3 = UI.ContentHeaderBg
+    headerBottomSquare.BorderSizePixel = 0
+    headerBottomSquare.ZIndex = 52
+    headerBottomSquare.Parent = contentHeader
+
+    -- === Corner filler (левая кромка окна контента) ===
+    -- Верхняя часть (под шапку)
+    local cfTop = Instance.new("Frame")
+    cfTop.Name = "CornerFillerTop"
+    cfTop.Size = UDim2.new(0, 9, 0, 27)
+    cfTop.Position = UDim2.new(0, 0, 0, 0)
+    cfTop.BackgroundColor3 = UI.ContentHeaderBg
+    cfTop.BorderSizePixel = 0
+    cfTop.ZIndex = 53
+    cfTop.Parent = f2
+
+    -- Основная часть (тело окна)
     local cf = Instance.new("Frame")
     cf.Name = "CornerFiller"
-    cf.Size = UDim2.new(0, EDGE_CORNER, 1, 0)
-    cf.Position = UDim2.new(0, 0, 0, 0)
-    cf.BackgroundColor3 = Color3.fromRGB(6, 6, 8)
+    cf.Size = UDim2.new(0, 9, 1, -27)
+    cf.Position = UDim2.new(0, 0, 0, 27)
+    cf.BackgroundColor3 = UI.Window002Bg
     cf.BorderSizePixel = 0
     cf.BackgroundTransparency = 0
     cf.ZIndex = 50
@@ -511,7 +549,7 @@ local function initGUI()
                     Enum.ThumbnailSize.Size150x150
                 )
             end)
-            if success and thumbnail and avatarImg.Parent then
+            if success and thumbnail then
                 avatarImg.Image = thumbnail
             end
         end)
@@ -522,20 +560,20 @@ local function initGUI()
     fone.Size = UDim2.new(0, 115, 0, 15)
     fone.AnchorPoint = Vector2.new(0.5, 0)
     fone.Position = UDim2.new(0.5, 0, 1, 0)
-    fone.BackgroundColor3 = Color3.fromRGB(6, 6, 8)
+    fone.BackgroundColor3 = UI.BottomBarBg
     fone.BorderSizePixel = 0
     fone.ZIndex = 60
     fone.Parent = f2
 
     local c3 = Instance.new("UICorner")
-    c3.CornerRadius = UDim.new(0, EDGE_CORNER)
+    c3.CornerRadius = UDim.new(0, 9)
     c3.Parent = fone
     addUIStroke(fone, Color3.fromRGB(45, 45, 55), 1, 0.4, 0)
 
     local cffone = Instance.new("Frame")
-    cffone.Size = UDim2.new(1, 0, 0, EDGE_CORNER)
+    cffone.Size = UDim2.new(1, 0, 0, 9)
     cffone.Position = UDim2.new(0, 0, 0, 0)
-    cffone.BackgroundColor3 = Color3.fromRGB(6, 6, 8)
+    cffone.BackgroundColor3 = UI.BottomBarBg
     cffone.BorderSizePixel = 0
     cffone.ZIndex = 60
     cffone.Parent = fone
@@ -562,37 +600,15 @@ local function initGUI()
     hitBoxC.Name = "CloseHitbox"
     hitBoxC.BackgroundTransparency = 1
     hitBoxC.Text = ""
-    hitBoxC.AutoButtonColor = false
     hitBoxC.Size = UDim2.new(1, 0, 1, 0)
     hitBoxC.ZIndex = 62
     hitBoxC.Parent = closeFrame
     hitBoxC.Activated:Connect(function()
-        if s then s:Destroy() end
-    end)
-
-    s.Destroying:Connect(function()
         if state.GuiToggleConn then
             state.GuiToggleConn:Disconnect()
             state.GuiToggleConn = nil
         end
-        state.Initialized = false
-        state.ScreenGui = nil
-        state.Window001 = nil
-        state.Window002 = nil
-        state.SidebarScroll = nil
-        state.CurrentActiveId = nil
-        table.clear(state.MiniButtons)
-        table.clear(state.Frames)
-        table.clear(state.Sections)
-        table.clear(state.CurrentSectionTabIds)
-        table.clear(state.TabCallbacksRan)
-        state.LastExpandedClose = nil
-        state.CurrentSection = nil
-        state.GlobalTabCount = 0
-        state.OpenFirst = true
-        state.ScheduledAutoSelect = false
-        state.CurrentTabFrame = nil
-        state.CurrentGroup = nil
+        if s then s:Destroy() end
     end)
 
     local minusFrame = Instance.new("Frame")
@@ -617,19 +633,19 @@ local function initGUI()
     hitBoxMinus.Name = "MinusHitbox"
     hitBoxMinus.BackgroundTransparency = 1
     hitBoxMinus.Text = ""
-    hitBoxMinus.AutoButtonColor = false
     hitBoxMinus.Size = UDim2.new(1, 0, 1, 0)
     hitBoxMinus.ZIndex = 62
     hitBoxMinus.Parent = minusFrame
 
     local isCollapsed = false
     local tweenBusy = false
+    local animInfo = TweenInfo.new(0.35, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
 
     hitBoxMinus.Activated:Connect(function()
         if tweenBusy then return end
         tweenBusy = true
 
-        local targetWidth = isCollapsed and WINDOW_W or PANEL_W
+        local targetWidth = isCollapsed and 651 or 500
         local targetCfTransparency = isCollapsed and 0 or 1
         local targetStrokeF2 = isCollapsed and 1 or 0.35
         local targetStrokeF1 = isCollapsed and 0.35 or 1
@@ -639,32 +655,23 @@ local function initGUI()
         local rightEdge = curX + f1.Size.X.Offset
         local targetX = math.max(0, rightEdge - targetWidth)
 
-        local twFrame = ts:Create(f1, ANIM_INFO, {
-            Size = UDim2.new(0, targetWidth, 0, WINDOW_H),
+        local twFrame = ts:Create(f1, animInfo, {
+            Size = UDim2.new(0, targetWidth, 0, 450),
             Position = UDim2.new(0, targetX, 0, curY)
         })
-        local twCorner = ts:Create(cf, ANIM_INFO, {BackgroundTransparency = targetCfTransparency})
-        local twStrokeF1 = ts:Create(strokeF1, ANIM_INFO, {Transparency = targetStrokeF1})
-        local twStrokeF2 = ts:Create(strokeF2, ANIM_INFO, {Transparency = targetStrokeF2})
-
-        local doneCount = 0
-        local function onDone()
-            doneCount = doneCount + 1
-            if doneCount >= 4 then
-                isCollapsed = not isCollapsed
-                tweenBusy = false
-            end
-        end
-
-        twFrame.Completed:Connect(onDone)
-        twCorner.Completed:Connect(onDone)
-        twStrokeF1.Completed:Connect(onDone)
-        twStrokeF2.Completed:Connect(onDone)
+        local twCorner = ts:Create(cf, animInfo, {BackgroundTransparency = targetCfTransparency})
+        local twStrokeF1 = ts:Create(strokeF1, animInfo, {Transparency = targetStrokeF1})
+        local twStrokeF2 = ts:Create(strokeF2, animInfo, {Transparency = targetStrokeF2})
 
         twFrame:Play()
         twCorner:Play()
         twStrokeF1:Play()
         twStrokeF2:Play()
+
+        twFrame.Completed:Connect(function()
+            isCollapsed = not isCollapsed
+            tweenBusy = false
+        end)
     end)
 
     local moveFrame = Instance.new("Frame")
@@ -690,7 +697,6 @@ local function initGUI()
     hitBoxM.Name = "DragHitbox"
     hitBoxM.BackgroundTransparency = 1
     hitBoxM.Text = ""
-    hitBoxM.AutoButtonColor = false
     hitBoxM.Size = UDim2.new(1, 0, 1, 0)
     hitBoxM.ZIndex = 62
     hitBoxM.Parent = moveFrame
@@ -698,8 +704,6 @@ local function initGUI()
     local isDragging = false
     local dragStartMouse = nil
     local dragStartFrame = nil
-    local dragMoveConn = nil
-    local dragEndConn = nil
 
     local function updateDrag(input)
         local delta = input.Position - dragStartMouse
@@ -726,32 +730,22 @@ local function initGUI()
             dragStartMouse = input.Position
             dragStartFrame = Vector2.new(f1.Position.X.Offset, f1.Position.Y.Offset)
 
-            if dragMoveConn then dragMoveConn:Disconnect() end
-            if dragEndConn then dragEndConn:Disconnect() end
+            local moveConn
+            local endConn
 
-            dragMoveConn = uis.InputChanged:Connect(function(moveInput)
-                if isDragging and (moveInput.UserInputType == Enum.UserInputType.MouseMovement or moveInput.UserInputType == Enum.UserInputType.Touch) then
+            moveConn = uis.InputChanged:Connect(function(moveInput)
+                if (moveInput.UserInputType == Enum.UserInputType.MouseMovement or moveInput.UserInputType == Enum.UserInputType.Touch) and isDragging then
                     updateDrag(moveInput)
                 end
             end)
 
-            dragEndConn = uis.InputEnded:Connect(function(endInput)
+            endConn = uis.InputEnded:Connect(function(endInput)
                 if endInput.UserInputType == Enum.UserInputType.MouseButton1 or endInput.UserInputType == Enum.UserInputType.Touch then
                     isDragging = false
-                    if dragMoveConn then dragMoveConn:Disconnect() dragMoveConn = nil end
-                    if dragEndConn then dragEndConn:Disconnect() dragEndConn = nil end
+                    if moveConn then moveConn:Disconnect() end
+                    if endConn then endConn:Disconnect() end
                 end
             end)
-        end
-    end)
-end
-
-local function safeSpawn(callback)
-    if type(callback) ~= "function" then return end
-    task.spawn(function()
-        local ok, err = pcall(callback)
-        if not ok then
-            warn("[Library] callback error: " .. tostring(err))
         end
     end)
 end
@@ -852,15 +846,12 @@ function Lib:Section(titleText, iconImg)
 
     local function recalculateHeight()
         local count = sectionObj.SubCount
-        return UI.HeaderHeight + (count * UI.RowHeight) + (math.max(0, count - 1) * UI.SubPadding) + UI.SectionBottomPad
+        return UI.HeaderHeight + (count * UI.RowHeight) + (math.max(0, count - 1) * UI.SubPadding) + 6
     end
 
     local busy = false
     local function setExpanded(expand, instant)
-        if expand == sectionObj.IsExpanded then
-            busy = false
-            return
-        end
+        if expand == sectionObj.IsExpanded then return end
         if expand and state.LastExpandedClose and state.LastExpandedClose ~= setExpanded then
             local prevClose = state.LastExpandedClose
             state.LastExpandedClose = nil
@@ -882,22 +873,17 @@ function Lib:Section(titleText, iconImg)
             entry.Size = sz
             arrow.Rotation = rot
             entry.ClipsDescendants = not sectionObj.IsExpanded
-            busy = false
         else
             local tw = ts:Create(entry, TWEEN_INFO, {Size = sz})
             ts:Create(arrow, TWEEN_INFO, {Rotation = rot}):Play()
+            tw:Play()
             if sectionObj.IsExpanded then
                 tw.Completed:Connect(function()
                     if sectionObj.IsExpanded then entry.ClipsDescendants = false end
-                    busy = false
                 end)
             else
                 entry.ClipsDescendants = true
-                tw.Completed:Connect(function()
-                    busy = false
-                end)
             end
-            tw:Play()
         end
     end
 
@@ -915,10 +901,13 @@ function Lib:Section(titleText, iconImg)
         if busy or sectionObj.SubCount <= 0 then return end
         busy = true
         setExpanded(not sectionObj.IsExpanded, false)
+        task.defer(function() busy = false end)
     end)
 
     table.insert(state.Sections, sectionObj)
     state.CurrentSection = sectionObj
+
+    state.LastCreatedType = "Section"
 
     return sectionObj
 end
@@ -947,13 +936,8 @@ function Lib:Tab(textStr, iconImg, callback)
         targetFrame.Position = UDim2.new(0, 10, 0, 27)
         targetFrame.BackgroundTransparency = 1
         targetFrame.BorderSizePixel = 0
-        targetFrame.ScrollBarThickness = 3
-        targetFrame.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 75)
-        targetFrame.ScrollBarImageTransparency = 0.5
-        targetFrame.ScrollingEnabled = true
-        targetFrame.ElasticBehavior = Enum.ElasticBehavior.Never
+        targetFrame.ScrollBarThickness = 0
         targetFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        targetFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
         targetFrame.Visible = false
 
         local layout = Instance.new("UIListLayout")
@@ -966,7 +950,6 @@ function Lib:Tab(textStr, iconImg, callback)
         local padding = Instance.new("UIPadding")
         padding.PaddingTop = UDim.new(0, 5)
         padding.PaddingBottom = UDim.new(0, 10)
-        padding.PaddingRight = UDim.new(0, 4)
         padding.Parent = targetFrame
 
         if state.Window002 then
@@ -976,7 +959,6 @@ function Lib:Tab(textStr, iconImg, callback)
     end
 
     state.CurrentTabFrame = state.Frames[targetName]
-    state.CurrentGroup = nil
 
     local subLine = Instance.new("Frame")
     subLine.Name = "SubLine_" .. formattedId
@@ -1068,7 +1050,6 @@ function Lib:Tab(textStr, iconImg, callback)
     btn.Name = formattedId
     btn.BackgroundTransparency = 1
     btn.Text = ""
-    btn.AutoButtonColor = false
     btn.Size = UDim2.new(1, 0, 1, 0)
     btn.Parent = card
 
@@ -1087,29 +1068,29 @@ function Lib:Tab(textStr, iconImg, callback)
 
     btn.MouseButton1Click:Connect(function()
         switchTargetFrame(formattedId)
-        if callback and not state.TabCallbacksRan[formattedId] then
-            state.TabCallbacksRan[formattedId] = true
-            safeSpawn(callback)
+        if callback then
+            task.spawn(callback)
         end
     end)
 
     if curSec.IsExpanded then
-        local targetOpen = UI.HeaderHeight + (curSec.SubCount * UI.RowHeight) + (math.max(0, curSec.SubCount - 1) * UI.SubPadding) + UI.SectionBottomPad
+        local targetOpen = UI.HeaderHeight + (curSec.SubCount * UI.RowHeight) + (math.max(0, curSec.SubCount - 1) * UI.SubPadding) + 6
         curSec.Frame.Size = UDim2.new(1, 0, 0, targetOpen)
     end
 
     if state.OpenFirst and not state.ScheduledAutoSelect then
         state.ScheduledAutoSelect = true
         task.delay(0.1, function()
+            switchTargetFrame("001")
             local firstSec = state.Sections[1]
-            if not firstSec or not firstSec.FirstTabId then return end
-            switchTargetFrame(firstSec.FirstTabId)
-            if firstSec.FirstCallback and not state.TabCallbacksRan[firstSec.FirstTabId] then
-                state.TabCallbacksRan[firstSec.FirstTabId] = true
-                safeSpawn(firstSec.FirstCallback)
+            if firstSec and firstSec.FirstCallback then
+                task.spawn(firstSec.FirstCallback)
             end
         end)
     end
+
+    state.LastCreatedType = "Tab"
+    state.LastCreatedTabId = formattedId
 end
 
 function Lib:Button(textStr, iconImg, callback)
@@ -1185,7 +1166,6 @@ function Lib:Button(textStr, iconImg, callback)
     btn.Name = "ActionBtn"
     btn.BackgroundTransparency = 1
     btn.Text = ""
-    btn.AutoButtonColor = false
     btn.Size = UDim2.new(1, 0, 1, 0)
     btn.Parent = card
 
@@ -1202,17 +1182,15 @@ function Lib:Button(textStr, iconImg, callback)
     btn.MouseButton1Click:Connect(function()
         ts:Create(card, TweenInfo.new(0.08), {BackgroundTransparency = 0}):Play()
         task.delay(0.08, function()
-            if card and card.Parent then
-                ts:Create(card, TweenInfo.new(0.15), {BackgroundTransparency = 0.2}):Play()
-            end
+            ts:Create(card, TweenInfo.new(0.15), {BackgroundTransparency = 0.2}):Play()
         end)
         if callback then
-            safeSpawn(callback)
+            task.spawn(callback)
         end
     end)
 
     if curSec.IsExpanded then
-        local targetOpen = UI.HeaderHeight + (curSec.SubCount * UI.RowHeight) + (math.max(0, curSec.SubCount - 1) * UI.SubPadding) + UI.SectionBottomPad
+        local targetOpen = UI.HeaderHeight + (curSec.SubCount * UI.RowHeight) + (math.max(0, curSec.SubCount - 1) * UI.SubPadding) + 6
         curSec.Frame.Size = UDim2.new(1, 0, 0, targetOpen)
     end
 end
@@ -1246,17 +1224,15 @@ function Lib:Text(textStr)
     txt.Parent = subLine
 
     if curSec.IsExpanded then
-        local targetOpen = UI.HeaderHeight + (curSec.SubCount * UI.RowHeight) + (math.max(0, curSec.SubCount - 1) * UI.SubPadding) + UI.SectionBottomPad
+        local targetOpen = UI.HeaderHeight + (curSec.SubCount * UI.RowHeight) + (math.max(0, curSec.SubCount - 1) * UI.SubPadding) + 6
         curSec.Frame.Size = UDim2.new(1, 0, 0, targetOpen)
     end
 
-    local obj = {}
-    function obj:SetText(newText)
-        if txt and txt.Parent then
+    return {
+        SetText = function(_, newText)
             txt.Text = newText
         end
-    end
-    return obj
+    }
 end
 
 local function CreateInternalGroup(tabFrame, titleText)
@@ -1337,12 +1313,6 @@ for i = 1, 50 do
     end
 end
 
-function Lib:GroupAt(index, titleText)
-    local targetTabId = state.CurrentSectionTabIds[index]
-    local targetTabFrame = targetTabId and state.Frames["F" .. targetTabId] or state.CurrentTabFrame
-    CreateInternalGroup(targetTabFrame, titleText)
-end
-
 function Lib:Label(textStr)
     if not state.CurrentGroup then return end
 
@@ -1355,10 +1325,6 @@ function Lib:Label(textStr)
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Text = textStr
     lbl.Parent = state.CurrentGroup
-end
-
-function Lib:SetGrid(enabled)
-    state.IsGrid = tostring(enabled) == "true" or enabled == true
 end
 
 initGUI()
