@@ -200,8 +200,6 @@ local function initGUI()
     c1.CornerRadius = UDim.new(0, 9)
     c1.Parent = f1
 
-    local strokeF1 = addUIStroke(f1, Color3.fromRGB(50, 50, 60), 1, 0.35, 45)
-
     local sidebar = Instance.new("Frame")
     sidebar.Name = "SidebarContainer"
     sidebar.Size = UDim2.new(0, 151, 1, 0)
@@ -226,8 +224,6 @@ local function initGUI()
     local c2 = Instance.new("UICorner")
     c2.CornerRadius = UDim.new(0, 9)
     c2.Parent = f2
-
-    local strokeF2 = addUIStroke(f2, Color3.fromRGB(50, 50, 60), 1, 1, 45)
 
     local cf = Instance.new("Frame")
     cf.Name = "CornerFiller"
@@ -612,8 +608,6 @@ local function initGUI()
 
         local targetWidth = isCollapsed and 651 or 500
         local targetCfTransparency = isCollapsed and 0 or 1
-        local targetStrokeF2 = isCollapsed and 1 or 0.35
-        local targetStrokeF1 = isCollapsed and 0.35 or 1
 
         local curX = f1.Position.X.Offset
         local curY = f1.Position.Y.Offset
@@ -625,13 +619,9 @@ local function initGUI()
             Position = UDim2.new(0, targetX, 0, curY)
         })
         local twCorner = ts:Create(cf, animInfo, {BackgroundTransparency = targetCfTransparency})
-        local twStrokeF1 = ts:Create(strokeF1, animInfo, {Transparency = targetStrokeF1})
-        local twStrokeF2 = ts:Create(strokeF2, animInfo, {Transparency = targetStrokeF2})
 
         twFrame:Play()
         twCorner:Play()
-        twStrokeF1:Play()
-        twStrokeF2:Play()
 
         twFrame.Completed:Connect(function()
             isCollapsed = not isCollapsed
