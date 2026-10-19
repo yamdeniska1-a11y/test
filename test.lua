@@ -93,7 +93,6 @@ function Library:CreateWindow(config)
 	MainStroke.Thickness = 1
 	MainStroke.Parent = MainFrame
 
-	-- Зона перетаскивания (смещена вправо от сайдбара, чтобы не блокировать клики по титулам)
 	local HeaderDrag = Instance.new("TextButton")
 	HeaderDrag.Name = "HeaderDrag"
 	HeaderDrag.Size = UDim2.new(1, -385, 0, 48)
@@ -104,7 +103,6 @@ function Library:CreateWindow(config)
 	HeaderDrag.ZIndex = 5
 	HeaderDrag.Parent = MainFrame
 
-	-- Сайдбар
 	local Sidebar = Instance.new("Frame")
 	Sidebar.Name = "Sidebar"
 	Sidebar.Size = UDim2.new(0, 205, 1, -12)
@@ -140,7 +138,6 @@ function Library:CreateWindow(config)
 	NavList.Padding = UDim.new(0, 6)
 	NavList.Parent = NavScroll
 
-	-- Профиль
 	local Profile = Instance.new("Frame")
 	Profile.Name = "ProfilePanel"
 	Profile.Size = UDim2.new(1, -8, 0, 48)
@@ -206,7 +203,6 @@ function Library:CreateWindow(config)
 	NicknameText.TextTruncate = Enum.TextTruncate.AtEnd
 	NicknameText.Parent = Profile
 
-	-- Верхняя панель справа
 	local TopRightContainer = Instance.new("Frame")
 	TopRightContainer.Name = "TopRightContainer"
 	TopRightContainer.Size = UDim2.new(0, 150, 0, 30)
@@ -284,7 +280,6 @@ function Library:CreateWindow(config)
 	ContentContainer.BackgroundTransparency = 1
 	ContentContainer.Parent = MainFrame
 
-	-- Синхронный реестр для плавного затухания интерфейса
 	local FadeElements = {}
 	local function registerFade(obj, prop, defVal)
 		table.insert(FadeElements, {obj = obj, prop = prop, default = defVal})
@@ -306,7 +301,6 @@ function Library:CreateWindow(config)
 	registerFade(CloseBtn, "ImageTransparency", 0)
 	registerFade(ResizeBtn, "ImageTransparency", 0)
 
-	-- Shatter effect (разлет на осколки)
 	local isDestroying = false
 	local function shatterAndDestroy()
 		if isDestroying then return end
@@ -370,7 +364,6 @@ function Library:CreateWindow(config)
 	end
 	CloseBtn.MouseButton1Click:Connect(shatterAndDestroy)
 
-	-- Плавная анимация скрытия/показа (Left Alt)
 	local isGuiOpen = true
 	local isAnimating = false
 	local fadeInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
@@ -421,7 +414,6 @@ function Library:CreateWindow(config)
 		end
 	end)
 
-	-- Перемещение и ресайз
 	local isDragging, isResizing = false, false
 	local dragStartMouse, startFramePos = Vector2.new(), Vector2.new()
 	local targetPos = Vector2.new(initX, initY)
@@ -559,7 +551,6 @@ function Library:CreateWindow(config)
 		TitleLabel.Parent = HeaderBtn
 		registerFade(TitleLabel, "TextTransparency", 0)
 
-		-- Шеврон: -90° смотрит строго вправо (>), 0° смотрит строго вниз (v)
 		local ArrowImg = Instance.new("ImageLabel")
 		ArrowImg.Name = "Arrow"
 		ArrowImg.Size = UDim2.new(0, 14, 0, 14)
@@ -578,7 +569,6 @@ function Library:CreateWindow(config)
 		SubContent.BackgroundTransparency = 1
 		SubContent.Parent = SectionFrame
 
-		-- Базовая серая линия дерева
 		local TreeLine = Instance.new("Frame")
 		TreeLine.Name = "TreeLine"
 		TreeLine.Size = UDim2.new(0, 1, 0, 0)
@@ -588,7 +578,6 @@ function Library:CreateWindow(config)
 		TreeLine.Parent = SubContent
 		registerFade(TreeLine, "BackgroundTransparency", 0)
 
-		-- Белая активная полоса (строго до выбранного пункта)
 		local ActiveTreeLine = Instance.new("Frame")
 		ActiveTreeLine.Name = "ActiveTreeLine"
 		ActiveTreeLine.Size = UDim2.new(0, 1, 0, 0)
@@ -798,14 +787,12 @@ function Library:CreateWindow(config)
 				TabInfo.IsSelected = true
 				Page.Visible = true
 
-				-- Белая подсветка выбранного пункта и его ветки
 				TweenService:Create(SubLabel, TweenInfo.new(0.18), {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
 				TweenService:Create(Branch, TweenInfo.new(0.18), {BackgroundColor3 = Color3.fromRGB(255, 255, 255)}):Play()
 				if SubIconImg then
 					TweenService:Create(SubIconImg, TweenInfo.new(0.18), {ImageColor3 = Color3.fromRGB(255, 255, 255)}):Play()
 				end
 
-				-- Белая полоса дерева идет только до выбранного подпункта
 				local activeHeight = (TabInfo.Index - 1) * (26 + 4) + 13
 				TweenService:Create(ActiveTreeLine, TweenInfo.new(0.2), {Size = UDim2.new(0, 1, 0, activeHeight)}):Play()
 
