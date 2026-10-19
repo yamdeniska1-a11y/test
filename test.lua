@@ -360,7 +360,9 @@ function Library:CreateWindow(config)
 
 		task.wait(1.5)
 		BlurEffect:Destroy()
-		OverlayGui:Destroy()
+		-- Удаляем главное окно, но оставляем OverlayGui если есть открепленные столбцы
+		MainFrame:Destroy()
+		BlackOverlay:Destroy()
 	end
 	CloseBtn.MouseButton1Click:Connect(shatterAndDestroy)
 
@@ -379,8 +381,10 @@ function Library:CreateWindow(config)
 			BlurEffect.Enabled = true
 
 			for _, item in ipairs(FadeElements) do
-				item.obj[item.prop] = 1
-				TweenService:Create(item.obj, fadeInfo, {[item.prop] = item.default}):Play()
+				if item.obj and item.obj.Parent then
+					item.obj[item.prop] = 1
+					TweenService:Create(item.obj, fadeInfo, {[item.prop] = item.default}):Play()
+				end
 			end
 
 			TweenService:Create(BlackOverlay, fadeInfo, {BackgroundTransparency = 0.5}):Play()
@@ -391,7 +395,9 @@ function Library:CreateWindow(config)
 			tBlur:Play()
 		else
 			for _, item in ipairs(FadeElements) do
-				TweenService:Create(item.obj, fadeInfo, {[item.prop] = 1}):Play()
+				if item.obj and item.obj.Parent then
+					TweenService:Create(item.obj, fadeInfo, {[item.prop] = 1}):Play()
+				end
 			end
 
 			TweenService:Create(BlackOverlay, fadeInfo, {BackgroundTransparency = 1}):Play()
@@ -482,7 +488,7 @@ function Library:CreateWindow(config)
 	end)
 
 	RunService.RenderStepped:Connect(function(dt)
-		if isDestroying then return end
+		if isDestroying or not MainFrame or not MainFrame.Parent then return end
 		local cur = Vector2.new(MainFrame.Position.X.Offset, MainFrame.Position.Y.Offset)
 		if (cur - targetPos).Magnitude > 0.4 then
 			local factor = math.clamp(dt * 26, 0, 1)
@@ -739,6 +745,189 @@ function Library:CreateWindow(config)
 			Page.ScrollBarImageColor3 = Color3.fromRGB(50, 50, 65)
 			Page.Visible = false
 			Page.Parent = ContentContainer
+
+			local ColumnsLayout = Instance.new("UIListLayout")
+			ColumnsLayout.FillDirection = Enum.FillDirection.Horizontal
+			ColumnsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+			ColumnsLayout.Padding = UDim.new(0, 10)
+			ColumnsLayout.Parent = Page
+
+			local ColumnsPadding = Instance.new("UIPadding")
+			ColumnsPadding.PaddingTop = UDim.new(0, 6)
+			ColumnsPadding.PaddingBottom = UDim.new(0, 6)
+			ColumnsPadding.PaddingLeft = UDim.new(0, 4)
+			ColumnsPadding.PaddingRight = UDim.new(0, 8)
+			ColumnsPadding.Parent = Page
+
+			-- ===================== СТОЛБЦЫ (COLUMNS) =====================
+			function Page:CreateColumn(colConfig)
+				colConfig = colConfig or {}
+				local colTitle = colConfig.Title or "Column"
+				local colWidth = colConfig.Width or 210
+
+				local ColumnFrame = Instance.new("Frame")
+				ColumnFrame.Name = colTitle .. "_Column"
+				ColumnFrame.Size = UDim2.new(0, colWidth, 1, -12)
+				ColumnFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 18)
+				ColumnFrame.BorderSizePixel = 0
+				ColumnFrame.Parent = Page
+
+				local ColCorner = Instance.new("UICorner")
+				ColCorner.CornerRadius = UDim.new(0, 8)
+				ColCorner.Parent = ColumnFrame
+
+				local ColStroke = Instance.new("UIStroke")
+				ColStroke.Color = Color3.fromRGB(35, 35, 42)
+				ColStroke.Thickness = 1
+				ColStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+				ColStroke.Parent = ColumnFrame
+
+				local ColHeader = Instance.new("Frame")
+				ColHeader.Name = "ColHeader"
+				ColHeader.Size = UDim2.new(1, 0, 0, 32)
+				ColHeader.BackgroundTransparency = 1
+				ColHeader.Parent = ColumnFrame
+
+				-- Иконка перетаскивания / открепления
+				local PopoutHandle = Instance.new("ImageButton")
+				PopoutHandle.Name = "PopoutHandle"
+				PopoutHandle.Size = UDim2.new(0, 16, 0, 16)
+				PopoutHandle.Position = UDim2.new(0, 8, 0.5, -8)
+				PopoutHandle.BackgroundTransparency = 1
+				PopoutHandle.Image = "rbxassetid://136050395759142"
+				PopoutHandle.ImageColor3 = Color3.fromRGB(140, 140, 150)
+				PopoutHandle.Parent = ColHeader
+
+				PopoutHandle.MouseEnter:Connect(function()
+					TweenService:Create(PopoutHandle, TweenInfo.new(0.2), {ImageColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+				end)
+				PopoutHandle.MouseLeave:Connect(function()
+					TweenService:Create(PopoutHandle, TweenInfo.new(0.2), {ImageColor3 = Color3.fromRGB(140, 140, 150)}):Play()
+				end)
+
+				local ColTitle = Instance.new("TextLabel")
+				ColTitle.Name = "ColTitle"
+				ColTitle.Size = UDim2.new(1, -34, 1, 0)
+				ColTitle.Position = UDim2.new(0, 30, 0, 0)
+				ColTitle.BackgroundTransparency = 1
+				ColTitle.Font = Enum.Font.GothamBold
+				ColTitle.Text = colTitle
+				ColTitle.TextSize = 12
+				ColTitle.TextColor3 = Color3.fromRGB(220, 220, 225)
+				ColTitle.TextXAlignment = Enum.TextXAlignment.Left
+				ColTitle.Parent = ColHeader
+
+				local ColDivider = Instance.new("Frame")
+				ColDivider.Name = "ColDivider"
+				ColDivider.Size = UDim2.new(1, -12, 0, 1)
+				ColDivider.Position = UDim2.new(0, 6, 0, 31)
+				ColDivider.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+				ColDivider.BorderSizePixel = 0
+				ColDivider.Parent = ColumnFrame
+
+				local ColContent = Instance.new("ScrollingFrame")
+				ColContent.Name = "ColContent"
+				ColContent.Size = UDim2.new(1, -8, 1, -38)
+				ColContent.Position = UDim2.new(0, 4, 0, 34)
+				ColContent.BackgroundTransparency = 1
+				ColContent.BorderSizePixel = 0
+				ColContent.ScrollBarThickness = 2
+				ColContent.ScrollBarImageColor3 = Color3.fromRGB(45, 45, 60)
+				ColContent.CanvasSize = UDim2.new(0, 0, 0, 0)
+				ColContent.AutomaticCanvasSize = Enum.AutomaticSize.Y
+				ColContent.Parent = ColumnFrame
+
+				local ColList = Instance.new("UIListLayout")
+				ColList.SortOrder = Enum.SortOrder.LayoutOrder
+				ColList.Padding = UDim.new(0, 6)
+				ColList.Parent = ColContent
+
+				local isDetached = false
+				local isColDragging = false
+				local colDragStartMouse = Vector2.new()
+				local colStartPos = Vector2.new()
+				local colTargetPos = Vector2.new()
+
+				local ColumnObj = {
+					Frame = ColumnFrame,
+					Content = ColContent,
+					Header = ColHeader,
+					TitleLabel = ColTitle,
+					Handle = PopoutHandle
+				}
+
+				function ColumnObj:SetTitle(newTitle)
+					colTitle = tostring(newTitle)
+					ColTitle.Text = colTitle
+				end
+
+				function ColumnObj:Detach()
+					if isDetached then return end
+					isDetached = true
+
+					local absPos = ColumnFrame.AbsolutePosition
+					local absSize = ColumnFrame.AbsoluteSize
+
+					ColumnFrame.Parent = OverlayGui
+					ColumnFrame.ZIndex = 50
+					ColumnFrame.Size = UDim2.new(0, absSize.X, 0, absSize.Y)
+					ColumnFrame.Position = UDim2.new(0, absPos.X, 0, absPos.Y)
+					colTargetPos = absPos
+
+					ColStroke.Color = Color3.fromRGB(60, 60, 75)
+				end
+
+				local function startDragCol()
+					isColDragging = true
+					colDragStartMouse = UserInputService:GetMouseLocation()
+
+					if not isDetached then
+						ColumnObj:Detach()
+					end
+					colStartPos = Vector2.new(ColumnFrame.Position.X.Offset, ColumnFrame.Position.Y.Offset)
+					colTargetPos = colStartPos
+				end
+
+				PopoutHandle.InputBegan:Connect(function(input)
+					if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+						startDragCol()
+					end
+				end)
+
+				ColHeader.InputBegan:Connect(function(input)
+					if isDetached and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+						startDragCol()
+					end
+				end)
+
+				UserInputService.InputChanged:Connect(function(input)
+					if isColDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+						local mouse = UserInputService:GetMouseLocation()
+						local delta = mouse - colDragStartMouse
+						colTargetPos = colStartPos + delta
+					end
+				end)
+
+				UserInputService.InputEnded:Connect(function(input)
+					if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+						isColDragging = false
+					end
+				end)
+
+				RunService.RenderStepped:Connect(function(dt)
+					if isDetached and ColumnFrame and ColumnFrame.Parent then
+						local cur = Vector2.new(ColumnFrame.Position.X.Offset, ColumnFrame.Position.Y.Offset)
+						if (cur - colTargetPos).Magnitude > 0.4 then
+							local factor = math.clamp(dt * 26, 0, 1)
+							local nextPos = cur:Lerp(colTargetPos, factor)
+							ColumnFrame.Position = UDim2.new(0, math.round(nextPos.X), 0, math.round(nextPos.Y))
+						end
+					end
+				end)
+
+				return ColumnObj
+			end
+			Page.AddColumn = Page.CreateColumn
 
 			local TabInfo = {
 				Btn = ItemBtn,
