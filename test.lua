@@ -10,34 +10,42 @@ Library.__index = Library
 
 local function resolveAsset(assetInput)
 	if not assetInput or assetInput == "" then return "" end
-	if type(assetInput) == "number" or not tostring(assetInput):find("://") then
-		local num = tostring(assetInput):gsub("%D", "")
+	
+	local str = tostring(assetInput)
+	if type(assetInput) == "number" or not str:find("://") then
+		local num = str:gsub("%D", "")
 		if #num > 0 then
 			return "rbxassetid://" .. num
 		end
 	end
-	if tostring(assetInput):find("^rbxassetid://") then
-		return assetInput
+	
+	if str:find("^rbxassetid://") then
+		return str
 	end
-	if tostring(assetInput):find("^http://") or tostring(assetInput):find("^https://") then
-		local getcustomasset = getcustomasset or getsynasset
-		local request = (syn and syn.request) or (http and http.request) or http_request or request
-		if getcustomasset and request and writefile and isfile then
-			local hash = "asset_" .. string.sub(HttpService:GenerateGUID(false), 1, 8) .. ".png"
-			pcall(function()
+
+	-- Безопасная загрузка внешней веб-картинки (GitHub/URL)
+	if str:find("^http://") or str:find("^https://") then
+		local ok, res = pcall(function()
+			local getcustomasset = getcustomasset or getsynasset
+			local req = (syn and syn.request) or (http and http.request) or http_request or request
+			if getcustomasset and req and writefile and isfile then
+				local hash = "asset_" .. string.sub(HttpService:GenerateGUID(false), 1, 8) .. ".png"
 				if not isfile(hash) then
-					local res = request({Url = assetInput, Method = "GET"})
-					if res and res.Body then
-						writefile(hash, res.Body)
+					local response = req({Url = str, Method = "GET"})
+					if response and response.Body then
+						writefile(hash, response.Body)
 					end
 				end
-			end)
-			if isfile and isfile(hash) then
-				return getcustomasset(hash)
+				if isfile(hash) then
+					return getcustomasset(hash)
+				end
 			end
-		end
+			return nil
+		end)
+		if ok and res then return res end
 	end
-	return assetInput
+	
+	return "rbxassetid://101007429951147"
 end
 
 function Library:CreateWindow(config)
@@ -89,10 +97,10 @@ function Library:CreateWindow(config)
 	MainStroke.Thickness = 1
 	MainStroke.Parent = MainFrame
 
-	-- Сайдбар слева (сделан чуть шире для комфортного дерева)
+	-- Сайдбар
 	local Sidebar = Instance.new("Frame")
 	Sidebar.Name = "Sidebar"
-	Sidebar.Size = UDim2.new(0, 190, 1, -12)
+	Sidebar.Size = UDim2.new(0, 195, 1, -12)
 	Sidebar.Position = UDim2.new(0, 6, 0, 6)
 	Sidebar.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 	Sidebar.BorderSizePixel = 0
@@ -108,7 +116,6 @@ function Library:CreateWindow(config)
 	SidebarStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	SidebarStroke.Parent = Sidebar
 
-	-- Скролл навигации
 	local NavScroll = Instance.new("ScrollingFrame")
 	NavScroll.Name = "NavScroll"
 	NavScroll.Size = UDim2.new(1, -8, 1, -68)
@@ -126,7 +133,7 @@ function Library:CreateWindow(config)
 	NavList.Padding = UDim.new(0, 6)
 	NavList.Parent = NavScroll
 
-	-- Профиль внизу
+	-- Профиль
 	local Profile = Instance.new("Frame")
 	Profile.Name = "Profile"
 	Profile.Size = UDim2.new(1, -8, 0, 48)
@@ -192,28 +199,21 @@ function Library:CreateWindow(config)
 	NickTxt.TextTruncate = Enum.TextTruncate.AtEnd
 	NickTxt.Parent = Profile
 
-	-- Контейнер для страниц
+	-- Контейнер для вкладок
 	local ContentContainer = Instance.new("Frame")
 	ContentContainer.Name = "ContentContainer"
-	ContentContainer.Size = UDim2.new(1, -214, 1, -54)
-	ContentContainer.Position = UDim2.new(0, 204, 0, 46)
+	ContentContainer.Size = UDim2.new(1, -218, 1, -54)
+	ContentContainer.Position = UDim2.new(0, 208, 0, 46)
 	ContentContainer.BackgroundTransparency = 1
 	ContentContainer.Parent = MainFrame
 
-	-- Верхние кнопки (Закрыть)
-	local TopButtons = Instance.new("Frame")
-	TopButtons.Size = UDim2.new(0, 60, 0, 30)
-	TopButtons.Position = UDim2.new(1, -70, 0, 10)
-	TopButtons.BackgroundTransparency = 1
-	TopButtons.Parent = MainFrame
-
 	local CloseBtn = Instance.new("ImageButton")
 	CloseBtn.Size = UDim2.new(0, 18, 0, 18)
-	CloseBtn.Position = UDim2.new(1, -22, 0.5, -9)
+	CloseBtn.Position = UDim2.new(1, -28, 0, 14)
 	CloseBtn.BackgroundTransparency = 1
 	CloseBtn.Image = "rbxassetid://116396312853810"
 	CloseBtn.ImageColor3 = Color3.fromRGB(160, 160, 170)
-	CloseBtn.Parent = TopButtons
+	CloseBtn.Parent = MainFrame
 	CloseBtn.MouseButton1Click:Connect(function()
 		BlurEffect:Destroy()
 		OverlayGui:Destroy()
@@ -227,7 +227,7 @@ function Library:CreateWindow(config)
 	ResizeBtn.ImageColor3 = Color3.fromRGB(120, 120, 130)
 	ResizeBtn.Parent = MainFrame
 
-	-- Перемещение и ресайз
+	-- Перемещение и изменение размера
 	local isDragging, isResizing = false, false
 	local dragStart, startPos = Vector2.new(), Vector2.new()
 	local targetPos = Vector2.new(initX, initY)
@@ -283,7 +283,6 @@ function Library:CreateWindow(config)
 		end
 	end)
 
-	-- Тоггл на LeftAlt
 	local isGuiOpen = true
 	UserInputService.InputBegan:Connect(function(input, gp)
 		if input.KeyCode == Enum.KeyCode.LeftAlt and not gp then
@@ -301,8 +300,7 @@ function Library:CreateWindow(config)
 
 	function WindowObj:CreateSection(secConfig)
 		local title = secConfig.Title or "Section"
-		local rawIcon = secConfig.Icon
-		local iconAsset = resolveAsset(rawIcon)
+		local iconAsset = resolveAsset(secConfig.Icon)
 
 		local SectionFrame = Instance.new("Frame")
 		SectionFrame.Name = title .. "_Section"
@@ -311,7 +309,6 @@ function Library:CreateWindow(config)
 		SectionFrame.ClipsDescendants = true
 		SectionFrame.Parent = NavScroll
 
-		-- Кнопка титула секции
 		local HeaderBtn = Instance.new("TextButton")
 		HeaderBtn.Name = "HeaderBtn"
 		HeaderBtn.Size = UDim2.new(1, 0, 0, 34)
@@ -332,7 +329,6 @@ function Library:CreateWindow(config)
 		HeaderStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 		HeaderStroke.Parent = HeaderBtn
 
-		-- Иконка секции слева (только если передана)
 		local textOffset = 10
 		local IconImg = nil
 		if iconAsset and iconAsset ~= "" then
@@ -359,7 +355,7 @@ function Library:CreateWindow(config)
 		TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 		TitleLabel.Parent = HeaderBtn
 
-		-- Стрелка аккордеона ТОЛЬКО СПРАВА
+		-- Стрелка аккордеона справа
 		local ArrowImg = Instance.new("ImageLabel")
 		ArrowImg.Name = "Arrow"
 		ArrowImg.Size = UDim2.new(0, 14, 0, 14)
@@ -370,7 +366,6 @@ function Library:CreateWindow(config)
 		ArrowImg.Rotation = 0
 		ArrowImg.Parent = HeaderBtn
 
-		-- Древовидный контейнер для подпунктов
 		local SubContainer = Instance.new("Frame")
 		SubContainer.Name = "SubContainer"
 		SubContainer.Size = UDim2.new(1, 0, 0, 0)
@@ -420,7 +415,6 @@ function Library:CreateWindow(config)
 		local function updateTreeLines()
 			local count = #SectionObj.Items
 			if count > 0 then
-				-- Высота ствола до середины последнего элемента
 				local stemHeight = (count - 1) * (26 + 3) + 13
 				TreeStem.Size = UDim2.new(0, 1, 0, stemHeight)
 			end
@@ -461,7 +455,7 @@ function Library:CreateWindow(config)
 			ItemCorner.CornerRadius = UDim.new(0, 5)
 			ItemCorner.Parent = ItemBtn
 
-			-- Горизонтальная веточка дерева (от ствола к подпункту)
+			-- Горизонтальная веточка дерева
 			local Branch = Instance.new("Frame")
 			Branch.Name = "Branch"
 			Branch.Size = UDim2.new(0, 13, 0, 1)
@@ -496,7 +490,6 @@ function Library:CreateWindow(config)
 			SubLabel.TextXAlignment = Enum.TextXAlignment.Left
 			SubLabel.Parent = ItemBtn
 
-			-- Страница для контента
 			local Page = Instance.new("ScrollingFrame")
 			Page.Name = itemTitle .. "_Page"
 			Page.Size = UDim2.new(1, 0, 1, 0)
@@ -569,5 +562,50 @@ function Library:CreateWindow(config)
 
 	return WindowObj
 end
+
+-- =========================================================================
+-- ЗАПУСК И ИНИЦИАЛИЗАЦИЯ ИНТЕРФЕЙСА (С 6 ПОДПУНКТАМИ VISUAL И ВСЕМИ РАЗДЕЛАМИ)
+-- =========================================================================
+
+local Window = Library:CreateWindow()
+
+-- VISUAL (6 мини-текстов)
+local VisualSection = Window:CreateSection({
+	Title = "Visual",
+	Icon = "101007429951147"
+})
+local EspPage       = VisualSection:CreateItem({ Title = "esp",       Icon = "101007429951147" })
+local ChamsPage     = VisualSection:CreateItem({ Title = "chams",     Icon = "" })
+local TracersPage   = VisualSection:CreateItem({ Title = "tracers",   Icon = "" })
+local BoxesPage     = VisualSection:CreateItem({ Title = "boxes",     Icon = "" })
+local SkeletonPage  = VisualSection:CreateItem({ Title = "skeleton",  Icon = "" })
+local OffscreenPage = VisualSection:CreateItem({ Title = "offscreen", Icon = "" })
+
+-- PLAYER
+local PlayerSection = Window:CreateSection({
+	Title = "Player",
+	Icon = "106205298246017"
+})
+local SpeedPage  = PlayerSection:CreateItem({ Title = "speed",     Icon = "" })
+local JumpPage   = PlayerSection:CreateItem({ Title = "high jump", Icon = "" })
+local FlyPage    = PlayerSection:CreateItem({ Title = "fly",       Icon = "" })
+local NoclipPage = PlayerSection:CreateItem({ Title = "noclip",    Icon = "" })
+
+-- WORLD
+local WorldSection = Window:CreateSection({
+	Title = "World",
+	Icon = "127866486547434"
+})
+local AmbientPage = WorldSection:CreateItem({ Title = "ambient",      Icon = "" })
+local FogPage     = WorldSection:CreateItem({ Title = "fog remove",   Icon = "" })
+local TimePage    = WorldSection:CreateItem({ Title = "time changer", Icon = "" })
+
+-- SERVER
+local ServerSection = Window:CreateSection({
+	Title = "Server",
+	Icon = "116396312853810"
+})
+local RejoinPage = ServerSection:CreateItem({ Title = "rejoin",     Icon = "" })
+local HopPage    = ServerSection:CreateItem({ Title = "server hop", Icon = "" })
 
 return Library
