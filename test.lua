@@ -20,26 +20,6 @@ local function resolveAsset(assetInput)
 	if str:find("^rbxassetid://") then
 		return str
 	end
-	if str:find("^http://") or str:find("^https://") then
-		local ok, res = pcall(function()
-			local getcustomasset = getcustomasset or getsynasset
-			local req = (syn and syn.request) or (http and http.request) or http_request or request
-			if getcustomasset and req and writefile and isfile then
-				local hash = "asset_" .. string.sub(HttpService:GenerateGUID(false), 1, 8) .. ".png"
-				if not isfile(hash) then
-					local response = req({Url = str, Method = "GET"})
-					if response and response.Body then
-						writefile(hash, response.Body)
-					end
-				end
-				if isfile(hash) then
-					return getcustomasset(hash)
-				end
-			end
-			return nil
-		end)
-		if ok and res then return res end
-	end
 	return ""
 end
 
@@ -138,6 +118,7 @@ function Library:CreateWindow(config)
 	NavList.Padding = UDim.new(0, 6)
 	NavList.Parent = NavScroll
 
+	-- ================= ПРОФИЛЬ =================
 	local Profile = Instance.new("Frame")
 	Profile.Name = "ProfilePanel"
 	Profile.Size = UDim2.new(1, -8, 0, 48)
@@ -160,12 +141,12 @@ function Library:CreateWindow(config)
 	AvatarHolder.Size = UDim2.new(0, 38, 0, 38)
 	AvatarHolder.Position = UDim2.new(0, 5, 0.5, -19)
 	AvatarHolder.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-	AvatarHolder.ClipsDescendants = true
+	AvatarHolder.ClipsDescendants = true -- ИСПРАВЛЕНИЕ: аватарка больше не вылезает
 	AvatarHolder.BorderSizePixel = 0
 	AvatarHolder.Parent = Profile
 
 	local AvatarCorner = Instance.new("UICorner")
-	AvatarCorner.CornerRadius = UDim.new(0, 19)
+	AvatarCorner.CornerRadius = UDim.new(0, 19) -- Круглая аватарка
 	AvatarCorner.Parent = AvatarHolder
 
 	local AvatarImage = Instance.new("ImageLabel")
@@ -228,31 +209,6 @@ function Library:CreateWindow(config)
 		end)
 	end
 
-	local SettingsBtn = Instance.new("ImageButton")
-	SettingsBtn.Name = "SettingsBtn"
-	SettingsBtn.Size = UDim2.new(0, 20, 0, 20)
-	SettingsBtn.BackgroundTransparency = 1
-	SettingsBtn.Image = "rbxassetid://106205298246017"
-	SettingsBtn.ImageColor3 = Color3.fromRGB(150, 150, 155)
-	SettingsBtn.Parent = TopRightContainer
-	setupHover(SettingsBtn, Color3.fromRGB(150, 150, 155), Color3.fromRGB(255, 255, 255))
-
-	local FolderBtn = Instance.new("ImageButton")
-	FolderBtn.Name = "FolderBtn"
-	FolderBtn.Size = UDim2.new(0, 20, 0, 20)
-	FolderBtn.BackgroundTransparency = 1
-	FolderBtn.Image = "rbxassetid://127866486547434"
-	FolderBtn.ImageColor3 = Color3.fromRGB(150, 150, 155)
-	FolderBtn.Parent = TopRightContainer
-	setupHover(FolderBtn, Color3.fromRGB(150, 150, 155), Color3.fromRGB(255, 255, 255))
-
-	local Divider = Instance.new("Frame")
-	Divider.Name = "Divider"
-	Divider.Size = UDim2.new(0, 1, 0, 14)
-	Divider.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
-	Divider.BorderSizePixel = 0
-	Divider.Parent = TopRightContainer
-
 	local CloseBtn = Instance.new("ImageButton")
 	CloseBtn.Name = "CloseBtn"
 	CloseBtn.Size = UDim2.new(0, 20, 0, 20)
@@ -262,17 +218,6 @@ function Library:CreateWindow(config)
 	CloseBtn.Parent = TopRightContainer
 	setupHover(CloseBtn, Color3.fromRGB(180, 180, 185), Color3.fromRGB(255, 255, 255))
 
-	local ResizeBtn = Instance.new("ImageButton")
-	ResizeBtn.Name = "ResizeBtn"
-	ResizeBtn.Size = UDim2.new(0, 16, 0, 16)
-	ResizeBtn.Position = UDim2.new(1, -20, 1, -20)
-	ResizeBtn.BackgroundTransparency = 1
-	ResizeBtn.Image = "rbxassetid://128492050787735"
-	ResizeBtn.ImageColor3 = Color3.fromRGB(120, 120, 125)
-	ResizeBtn.ZIndex = 10
-	ResizeBtn.Parent = MainFrame
-	setupHover(ResizeBtn, Color3.fromRGB(120, 120, 125), Color3.fromRGB(255, 255, 255))
-
 	local ContentContainer = Instance.new("Frame")
 	ContentContainer.Name = "ContentContainer"
 	ContentContainer.Size = UDim2.new(1, -228, 1, -54)
@@ -280,7 +225,7 @@ function Library:CreateWindow(config)
 	ContentContainer.BackgroundTransparency = 1
 	ContentContainer.Parent = MainFrame
 
-	-- >>> NEW: контейнер для независимых панелей ("окон после сайдбара")
+	-- Контейнер для окон (панелей)
 	local PanelsContainer = Instance.new("Frame")
 	PanelsContainer.Name = "PanelsContainer"
 	PanelsContainer.Size = UDim2.new(1, 0, 1, 0)
@@ -288,254 +233,23 @@ function Library:CreateWindow(config)
 	PanelsContainer.ClipsDescendants = true
 	PanelsContainer.Parent = ContentContainer
 
-	local FadeElements = {}
-	local function registerFade(obj, prop, defVal)
-		table.insert(FadeElements, {obj = obj, prop = prop, default = defVal})
-	end
-
-	registerFade(MainFrame, "BackgroundTransparency", 0)
-	registerFade(MainStroke, "Transparency", 0)
-	registerFade(Sidebar, "BackgroundTransparency", 0)
-	registerFade(SidebarStroke, "Transparency", 0)
-	registerFade(Profile, "BackgroundTransparency", 0)
-	registerFade(ProfileStroke, "Transparency", 0)
-	registerFade(AvatarHolder, "BackgroundTransparency", 0)
-	registerFade(AvatarImage, "ImageTransparency", 0)
-	registerFade(HelloText, "TextTransparency", 0)
-	registerFade(NicknameText, "TextTransparency", 0)
-	registerFade(Divider, "BackgroundTransparency", 0)
-	registerFade(SettingsBtn, "ImageTransparency", 0)
-	registerFade(FolderBtn, "ImageTransparency", 0)
-	registerFade(CloseBtn, "ImageTransparency", 0)
-	registerFade(ResizeBtn, "ImageTransparency", 0)
-
 	local isDestroying = false
-	local function shatterAndDestroy()
+	CloseBtn.MouseButton1Click:Connect(function()
 		if isDestroying then return end
 		isDestroying = true
-
-		local framePos = MainFrame.AbsolutePosition
-		local frameSize = MainFrame.AbsoluteSize
-		MainFrame.Visible = false
-
-		TweenService:Create(BlackOverlay, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			BackgroundTransparency = 1
-		}):Play()
-
-		TweenService:Create(BlurEffect, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Size = 0
-		}):Play()
-
-		local piecesFolder = Instance.new("Folder")
-		piecesFolder.Name = "ShatterPieces"
-		piecesFolder.Parent = OverlayGui
-
-		local blockSize = 32
-		local cols = math.clamp(math.floor(frameSize.X / blockSize), 8, 28)
-		local rows = math.clamp(math.floor(frameSize.Y / blockSize), 6, 18)
-		local cellW = frameSize.X / cols
-		local cellH = frameSize.Y / rows
-		local centerX = framePos.X + frameSize.X / 2
-
-		for r = 0, rows - 1 do
-			for c = 0, cols - 1 do
-				local piece = Instance.new("Frame")
-				piece.BorderSizePixel = 0
-				local posX = framePos.X + c * cellW
-				local posY = framePos.Y + r * cellH
-				piece.Position = UDim2.new(0, posX, 0, posY)
-				piece.Size = UDim2.new(0, cellW - 1, 0, cellH - 1)
-
-				local shade = math.random(14, 26)
-				piece.BackgroundColor3 = Color3.fromRGB(shade, shade, shade + 2)
-				piece.Parent = piecesFolder
-
-				local isLeft = (posX + cellW / 2) < centerX
-				local dirX = isLeft and -1 or 1
-				local spreadX = math.random(120, 360) * dirX
-				local spreadY = math.random(-90, 160)
-				local rot = math.random(-140, 140)
-				local dur = math.random(110, 160) / 100
-
-				TweenService:Create(piece, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-					Position = UDim2.new(0, posX + spreadX, 0, posY + spreadY),
-					Rotation = rot,
-					Size = UDim2.new(0, 0, 0, 0),
-					BackgroundTransparency = 1
-				}):Play()
-			end
-		end
-
-		task.wait(1.5)
-		BlurEffect:Destroy()
 		OverlayGui:Destroy()
-	end
-	CloseBtn.MouseButton1Click:Connect(shatterAndDestroy)
-
-	local isGuiOpen = true
-	local isAnimating = false
-	local fadeInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-
-	local function toggleGui()
-		if isAnimating or isDestroying then return end
-		isAnimating = true
-		isGuiOpen = not isGuiOpen
-
-		if isGuiOpen then
-			MainFrame.Visible = true
-			BlackOverlay.Visible = true
-			BlurEffect.Enabled = true
-
-			for _, item in ipairs(FadeElements) do
-				item.obj[item.prop] = 1
-				TweenService:Create(item.obj, fadeInfo, {[item.prop] = item.default}):Play()
-			end
-
-			TweenService:Create(BlackOverlay, fadeInfo, {BackgroundTransparency = 0.5}):Play()
-			local tBlur = TweenService:Create(BlurEffect, fadeInfo, {Size = 12})
-			tBlur.Completed:Connect(function()
-				isAnimating = false
-			end)
-			tBlur:Play()
-		else
-			for _, item in ipairs(FadeElements) do
-				TweenService:Create(item.obj, fadeInfo, {[item.prop] = 1}):Play()
-			end
-
-			TweenService:Create(BlackOverlay, fadeInfo, {BackgroundTransparency = 1}):Play()
-			local tBlur = TweenService:Create(BlurEffect, fadeInfo, {Size = 0})
-			tBlur.Completed:Connect(function()
-				if not isGuiOpen then
-					MainFrame.Visible = false
-					BlackOverlay.Visible = false
-					BlurEffect.Enabled = false
-				end
-				isAnimating = false
-			end)
-			tBlur:Play()
-		end
-	end
-
-	UserInputService.InputBegan:Connect(function(input, gp)
-		if input.KeyCode == Enum.KeyCode.LeftAlt and not gp then
-			toggleGui()
-		end
-	end)
-
-	local isDragging, isResizing = false, false
-	local dragStartMouse, startFramePos = Vector2.new(), Vector2.new()
-	local targetPos = Vector2.new(initX, initY)
-	local resizeStartMouse, startFrameSize = Vector2.new(), Vector2.new()
-
-	HeaderDrag.InputBegan:Connect(function(input)
-		if isDestroying then return end
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			isDragging = true
-			dragStartMouse = UserInputService:GetMouseLocation()
-			startFramePos = Vector2.new(MainFrame.Position.X.Offset, MainFrame.Position.Y.Offset)
-			targetPos = startFramePos
-		end
-	end)
-
-	ResizeBtn.InputBegan:Connect(function(input)
-		if isDestroying then return end
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			isResizing = true
-			isDragging = false
-			resizeStartMouse = UserInputService:GetMouseLocation()
-			startFrameSize = Vector2.new(MainFrame.AbsoluteSize.X, MainFrame.AbsoluteSize.Y)
-		end
-	end)
-
-	UserInputService.InputChanged:Connect(function(input)
-		if isDestroying then return end
-		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-			local currentMouse = UserInputService:GetMouseLocation()
-
-			if isDragging then
-				local delta = currentMouse - dragStartMouse
-				local screen = OverlayGui.AbsoluteSize
-				if screen.X <= 0 or screen.Y <= 0 then
-					local c = workspace.CurrentCamera
-					screen = (c and c.ViewportSize) or Vector2.new(1920, 1080)
-				end
-
-				local frameSize = MainFrame.AbsoluteSize
-				local minX, maxX = 0, math.max(0, screen.X - frameSize.X)
-				local minY, maxY = 0, math.max(0, screen.Y - frameSize.Y)
-
-				targetPos = Vector2.new(
-					math.clamp(startFramePos.X + delta.X, minX, maxX),
-					math.clamp(startFramePos.Y + delta.Y, minY, maxY)
-				)
-
-			elseif isResizing then
-				local delta = currentMouse - resizeStartMouse
-				local screen = OverlayGui.AbsoluteSize
-				if screen.X <= 0 or screen.Y <= 0 then
-					local c = workspace.CurrentCamera
-					screen = (c and c.ViewportSize) or Vector2.new(1920, 1080)
-				end
-
-				local curPos = Vector2.new(MainFrame.Position.X.Offset, MainFrame.Position.Y.Offset)
-				local maxW = math.max(480, screen.X - curPos.X)
-				local maxH = math.max(320, screen.Y - curPos.Y)
-
-				MainFrame.Size = UDim2.new(
-					0, math.clamp(startFrameSize.X + delta.X, 480, maxW),
-					0, math.clamp(startFrameSize.Y + delta.Y, 320, maxH)
-				)
-			end
-		end
-	end)
-
-	RunService.RenderStepped:Connect(function(dt)
-		if isDestroying then return end
-		local cur = Vector2.new(MainFrame.Position.X.Offset, MainFrame.Position.Y.Offset)
-		if (cur - targetPos).Magnitude > 0.4 then
-			local factor = math.clamp(dt * 26, 0, 1)
-			local nextPos = cur:Lerp(targetPos, factor)
-			MainFrame.Position = UDim2.new(0, math.round(nextPos.X), 0, math.round(nextPos.Y))
-		end
-	end)
-
-	UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			isDragging = false
-			isResizing = false
-		end
+		BlurEffect:Destroy()
 	end)
 
 	local WindowObj = {
-		Tabs = {},
-		Sections = {},
-		Panels = {}, -- >>> NEW
+		Panels = {},
+		CurrentPanel = nil,
 	}
 
-	-- >>> NEW: вспомогательная функция скрытия всех элементов (табы + панели)
-	local function hideAllContent()
-		for _, tab in ipairs(WindowObj.Tabs) do
-			tab.IsSelected = false
-			tab.Page.Visible = false
-			TweenService:Create(tab.Label, TweenInfo.new(0.18), {TextColor3 = Color3.fromRGB(130, 135, 145)}):Play()
-			TweenService:Create(tab.Branch, TweenInfo.new(0.18), {BackgroundColor3 = Color3.fromRGB(50, 52, 65)}):Play()
-			if tab.Icon then
-				TweenService:Create(tab.Icon, TweenInfo.new(0.18), {ImageColor3 = Color3.fromRGB(130, 135, 145)}):Play()
-			end
-			tab.ParentSection.HasActiveChild = false
-			tab.ParentSection:UpdateVisuals()
-		end
-
-		for _, panel in ipairs(WindowObj.Panels) do
-			panel.Frame.Visible = false
-			panel.IsVisible = false
-		end
-	end
-
-	-- >>> NEW: создать независимую панель ("окно после сайдбара")
+	-- ================= СОЗДАНИЕ ПАНЕЛИ (ОКНА) =================
 	function WindowObj:CreatePanel(panelConfig)
 		panelConfig = panelConfig or {}
-		local title = panelConfig.Title or "Panel"
+		local title = panelConfig.Title or "Window"
 
 		local PanelFrame = Instance.new("Frame")
 		PanelFrame.Name = title .. "_Panel"
@@ -554,6 +268,7 @@ function Library:CreateWindow(config)
 		PanelStroke.Thickness = 1
 		PanelStroke.Parent = PanelFrame
 
+		-- Заголовок окна (сверху слева)
 		local PanelHeader = Instance.new("Frame")
 		PanelHeader.Name = "Header"
 		PanelHeader.Size = UDim2.new(1, 0, 0, 34)
@@ -567,7 +282,7 @@ function Library:CreateWindow(config)
 		HeaderTitle.Font = Enum.Font.GothamBold
 		HeaderTitle.Text = title
 		HeaderTitle.TextSize = 14
-		HeaderTitle.TextColor3 = Color3.fromRGB(230, 230, 235)
+		HeaderTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 		HeaderTitle.TextXAlignment = Enum.TextXAlignment.Left
 		HeaderTitle.Parent = PanelHeader
 
@@ -578,10 +293,24 @@ function Library:CreateWindow(config)
 		HeaderLine.BorderSizePixel = 0
 		HeaderLine.Parent = PanelFrame
 
+		-- Вкладки внутри панели (Sub-Tabs)
+		local SubTabBar = Instance.new("Frame")
+		SubTabBar.Name = "SubTabBar"
+		SubTabBar.Size = UDim2.new(1, -16, 0, 28)
+		SubTabBar.Position = UDim2.new(0, 8, 0, 38)
+		SubTabBar.BackgroundTransparency = 1
+		SubTabBar.Parent = PanelFrame
+
+		local SubTabList = Instance.new("UIListLayout")
+		SubTabList.FillDirection = Enum.FillDirection.Horizontal
+		SubTabList.SortOrder = Enum.SortOrder.LayoutOrder
+		SubTabList.Padding = UDim.new(0, 6)
+		SubTabList.Parent = SubTabBar
+
 		local PanelScroll = Instance.new("ScrollingFrame")
 		PanelScroll.Name = "Scroll"
-		PanelScroll.Size = UDim2.new(1, -16, 1, -46)
-		PanelScroll.Position = UDim2.new(0, 8, 0, 40)
+		PanelScroll.Size = UDim2.new(1, -16, 1, -76)
+		PanelScroll.Position = UDim2.new(0, 8, 0, 70)
 		PanelScroll.BackgroundTransparency = 1
 		PanelScroll.BorderSizePixel = 0
 		PanelScroll.ScrollBarThickness = 2
@@ -595,659 +324,133 @@ function Library:CreateWindow(config)
 		PanelLayout.Padding = UDim.new(0, 6)
 		PanelLayout.Parent = PanelScroll
 
-		local PanelPad = Instance.new("UIPadding")
-		PanelPad.PaddingTop = UDim.new(0, 4)
-		PanelPad.PaddingLeft = UDim.new(0, 4)
-		PanelPad.PaddingRight = UDim.new(0, 4)
-		PanelPad.Parent = PanelScroll
-
 		local PanelInfo = {
 			Frame = PanelFrame,
 			Scroll = PanelScroll,
 			IsVisible = false,
-			Items = {},
-			Title = title,
+			SubTabs = {},
 		}
 
-		-- >>> NEW: элементы внутри панели
-		function PanelInfo:AddLabel(text)
+		function PanelInfo:Show()
+			for _, p in pairs(WindowObj.Panels) do
+				p.Frame.Visible = false
+				p.IsVisible = false
+			end
+			self.Frame.Visible = true
+			self.IsVisible = true
+			WindowObj.CurrentPanel = self
+		end
+
+		-- ДОБАВЛЕНИЕ ПОД-ВКЛАДОК (например, 4 штуки для ESP)
+		function PanelInfo:AddTab(tabName)
+			local btn = Instance.new("TextButton")
+			btn.Size = UDim2.new(0, 70, 1, 0)
+			btn.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
+			btn.BorderSizePixel = 0
+			btn.Font = Enum.Font.GothamMedium
+			btn.Text = tabName
+			btn.TextSize = 12
+			btn.TextColor3 = Color3.fromRGB(150, 150, 160)
+			btn.AutoButtonColor = false
+			btn.Parent = SubTabBar
+
+			local c = Instance.new("UICorner")
+			c.CornerRadius = UDim.new(0, 4)
+			c.Parent = btn
+
+			local tabPage = Instance.new("ScrollingFrame")
+			tabPage.Size = UDim2.new(1, 0, 1, 0)
+			tabPage.BackgroundTransparency = 1
+			tabPage.BorderSizePixel = 0
+			tabPage.ScrollBarThickness = 2
+			tabPage.Visible = false
+			tabPage.Parent = PanelScroll
+			
+			local pageLayout = Instance.new("UIListLayout")
+			pageLayout.SortOrder = Enum.SortOrder.LayoutOrder
+			pageLayout.Padding = UDim.new(0, 6)
+			pageLayout.Parent = tabPage
+
+			local tabData = { Btn = btn, Page = tabPage, IsSelected = false }
+
+			btn.MouseButton1Click:Connect(function()
+				for _, t in pairs(self.SubTabs) do
+					t.Page.Visible = false
+					t.Btn.TextColor3 = Color3.fromRGB(150, 150, 160)
+					TweenService:Create(t.Btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(24, 24, 28)}):Play()
+				end
+				tabData.Page.Visible = true
+				btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+				TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(40, 40, 45)}):Play()
+			end)
+
+			table.insert(self.SubTabs, tabData)
+			
+			-- Автоматически открываем первую вкладку
+			if #self.SubTabs == 1 then
+				btn.MouseButton1Click:Fire()
+			end
+
+			return tabData.Page -- Возвращаем страницу, чтобы вешать элементы
+		end
+
+		-- Элементы (упрощенные, вешаются на Page)
+		function PanelInfo:AddToggle(parentPage, cfg)
+			local state = cfg.Default or false
+			local row = Instance.new("Frame")
+			row.Size = UDim2.new(1, 0, 0, 30)
+			row.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
+			row.BorderSizePixel = 0
+			row.Parent = parentPage
+			Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
+
 			local lbl = Instance.new("TextLabel")
-			lbl.Size = UDim2.new(1, 0, 0, 22)
+			lbl.Size = UDim2.new(1, -50, 1, 0)
+			lbl.Position = UDim2.new(0, 10, 0, 0)
 			lbl.BackgroundTransparency = 1
 			lbl.Font = Enum.Font.Gotham
-			lbl.Text = tostring(text or "")
+			lbl.Text = cfg.Title
 			lbl.TextSize = 12
 			lbl.TextColor3 = Color3.fromRGB(200, 200, 210)
 			lbl.TextXAlignment = Enum.TextXAlignment.Left
-			lbl.Parent = PanelScroll
-			table.insert(self.Items, lbl)
-			return lbl
+			lbl.Parent = row
+
+			local btn = Instance.new("TextButton")
+			btn.Size = UDim2.new(1, 0, 1, 0)
+			btn.BackgroundTransparency = 1
+			btn.Text = ""
+			btn.Parent = row
+
+			local ind = Instance.new("Frame")
+			ind.Size = UDim2.new(0, 16, 0, 16)
+			ind.Position = UDim2.new(1, -26, 0.5, -8)
+			ind.BackgroundColor3 = state and Color3.fromRGB(80, 170, 255) or Color3.fromRGB(50, 50, 60)
+			ind.Parent = row
+			Instance.new("UICorner", ind).CornerRadius = UDim.new(0, 4)
+
+			btn.MouseButton1Click:Connect(function()
+				state = not state
+				ind.BackgroundColor3 = state and Color3.fromRGB(80, 170, 255) or Color3.fromRGB(50, 50, 60)
+				if cfg.Callback then cfg.Callback(state) end
+			end)
 		end
 
-		function PanelInfo:AddSeparator()
-			local sep = Instance.new("Frame")
-			sep.Size = UDim2.new(1, 0, 0, 1)
-			sep.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
-			sep.BorderSizePixel = 0
-			sep.Parent = PanelScroll
-			table.insert(self.Items, sep)
-			return sep
-		end
-
-		function PanelInfo:AddButton(btnConfig)
-			btnConfig = btnConfig or {}
+		function PanelInfo:AddButton(parentPage, cfg)
 			local btn = Instance.new("TextButton")
 			btn.Size = UDim2.new(1, 0, 0, 30)
 			btn.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
 			btn.BorderSizePixel = 0
 			btn.Font = Enum.Font.GothamMedium
-			btn.Text = btnConfig.Title or "Button"
+			btn.Text = cfg.Title
 			btn.TextSize = 12
 			btn.TextColor3 = Color3.fromRGB(220, 220, 230)
-			btn.AutoButtonColor = false
-			btn.Parent = PanelScroll
-
-			local c = Instance.new("UICorner")
-			c.CornerRadius = UDim.new(0, 6)
-			c.Parent = btn
-
-			btn.MouseEnter:Connect(function()
-				TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(36, 36, 42)}):Play()
-			end)
-			btn.MouseLeave:Connect(function()
-				TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(24, 24, 28)}):Play()
-			end)
-			btn.MouseButton1Click:Connect(function()
-				if type(btnConfig.Callback) == "function" then
-					local ok, err = pcall(btnConfig.Callback)
-					if not ok then warn("[Library] Button callback error: " .. tostring(err)) end
-				end
-			end)
-
-			table.insert(self.Items, btn)
-			return btn
-		end
-
-		function PanelInfo:AddToggle(tglConfig)
-			tglConfig = tglConfig or {}
-			local state = tglConfig.Default == true
-
-			local row = Instance.new("Frame")
-			row.Size = UDim2.new(1, 0, 0, 30)
-			row.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
-			row.BorderSizePixel = 0
-			row.Parent = PanelScroll
-
-			local rc = Instance.new("UICorner")
-			rc.CornerRadius = UDim.new(0, 6)
-			rc.Parent = row
-
-			local lbl = Instance.new("TextLabel")
-			lbl.Size = UDim2.new(1, -60, 1, 0)
-			lbl.Position = UDim2.new(0, 10, 0, 0)
-			lbl.BackgroundTransparency = 1
-			lbl.Font = Enum.Font.Gotham
-			lbl.Text = tglConfig.Title or "Toggle"
-			lbl.TextSize = 12
-			lbl.TextColor3 = Color3.fromRGB(200, 200, 210)
-			lbl.TextXAlignment = Enum.TextXAlignment.Left
-			lbl.Parent = row
-
-			local track = Instance.new("Frame")
-			track.Size = UDim2.new(0, 34, 0, 18)
-			track.Position = UDim2.new(1, -44, 0.5, -9)
-			track.BackgroundColor3 = state and Color3.fromRGB(80, 170, 255) or Color3.fromRGB(50, 50, 60)
-			track.BorderSizePixel = 0
-			track.Parent = row
-
-			local tc = Instance.new("UICorner")
-			tc.CornerRadius = UDim.new(0, 9)
-			tc.Parent = track
-
-			local knob = Instance.new("Frame")
-			knob.Size = UDim2.new(0, 14, 0, 14)
-			knob.Position = state and UDim2.new(1, -16, 0.5, -7) or UDim2.new(0, 2, 0.5, -7)
-			knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-			knob.BorderSizePixel = 0
-			knob.Parent = track
-
-			local kc = Instance.new("UICorner")
-			kc.CornerRadius = UDim.new(0, 7)
-			kc.Parent = knob
-
-			local hit = Instance.new("TextButton")
-			hit.Size = UDim2.new(1, 0, 1, 0)
-			hit.BackgroundTransparency = 1
-			hit.Text = ""
-			hit.Parent = row
-
-			local function setState(v, silent)
-				state = v
-				TweenService:Create(track, TweenInfo.new(0.18), {
-					BackgroundColor3 = state and Color3.fromRGB(80, 170, 255) or Color3.fromRGB(50, 50, 60)
-				}):Play()
-				TweenService:Create(knob, TweenInfo.new(0.18), {
-					Position = state and UDim2.new(1, -16, 0.5, -7) or UDim2.new(0, 2, 0.5, -7)
-				}):Play()
-				if not silent and type(tglConfig.Callback) == "function" then
-					local ok, err = pcall(tglConfig.Callback, state)
-					if not ok then warn("[Library] Toggle callback error: " .. tostring(err)) end
-				end
-			end
-
-			hit.MouseButton1Click:Connect(function()
-				setState(not state)
-			end)
-
-			table.insert(self.Items, row)
-			return {
-				Frame = row,
-				Set = setState,
-				Get = function() return state end
-			}
-		end
-
-		function PanelInfo:AddSlider(sldConfig)
-			sldConfig = sldConfig or {}
-			local minV = sldConfig.Min or 0
-			local maxV = sldConfig.Max or 100
-			local defV = math.clamp(sldConfig.Default or minV, minV, maxV)
-			local value = defV
-
-			local row = Instance.new("Frame")
-			row.Size = UDim2.new(1, 0, 0, 44)
-			row.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
-			row.BorderSizePixel = 0
-			row.Parent = PanelScroll
-
-			local rc = Instance.new("UICorner")
-			rc.CornerRadius = UDim.new(0, 6)
-			rc.Parent = row
-
-			local lbl = Instance.new("TextLabel")
-			lbl.Size = UDim2.new(1, -60, 0, 20)
-			lbl.Position = UDim2.new(0, 10, 0, 2)
-			lbl.BackgroundTransparency = 1
-			lbl.Font = Enum.Font.Gotham
-			lbl.Text = sldConfig.Title or "Slider"
-			lbl.TextSize = 12
-			lbl.TextColor3 = Color3.fromRGB(200, 200, 210)
-			lbl.TextXAlignment = Enum.TextXAlignment.Left
-			lbl.Parent = row
-
-			local valLbl = Instance.new("TextLabel")
-			valLbl.Size = UDim2.new(0, 50, 0, 20)
-			valLbl.Position = UDim2.new(1, -60, 0, 2)
-			valLbl.BackgroundTransparency = 1
-			valLbl.Font = Enum.Font.GothamMedium
-			valLbl.Text = tostring(value)
-			valLbl.TextSize = 12
-			valLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-			valLbl.TextXAlignment = Enum.TextXAlignment.Right
-			valLbl.Parent = row
-
-			local bar = Instance.new("Frame")
-			bar.Size = UDim2.new(1, -20, 0, 4)
-			bar.Position = UDim2.new(0, 10, 1, -12)
-			bar.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-			bar.BorderSizePixel = 0
-			bar.Parent = row
-
-			local barC = Instance.new("UICorner")
-			barC.CornerRadius = UDim.new(0, 2)
-			barC.Parent = bar
-
-			local fill = Instance.new("Frame")
-			fill.Size = UDim2.new((value - minV) / (maxV - minV), 0, 1, 0)
-			fill.BackgroundColor3 = Color3.fromRGB(80, 170, 255)
-			fill.BorderSizePixel = 0
-			fill.Parent = bar
-
-			local fillC = Instance.new("UICorner")
-			fillC.CornerRadius = UDim.new(0, 2)
-			fillC.Parent = fill
-
-			local dragging = false
-			local hit = Instance.new("TextButton")
-			hit.Size = UDim2.new(1, 0, 1, 0)
-			hit.BackgroundTransparency = 1
-			hit.Text = ""
-			hit.Parent = row
-
-			local function applyFromMouse(mx)
-				local absPos = bar.AbsolutePosition.X
-				local absSize = bar.AbsoluteSize.X
-				if absSize <= 0 then return end
-				local ratio = math.clamp((mx - absPos) / absSize, 0, 1)
-				local newVal = minV + (maxV - minV) * ratio
-				if sldConfig.Step then
-					newVal = math.floor(newVal / sldConfig.Step + 0.5) * sldConfig.Step
-				end
-				value = math.clamp(newVal, minV, maxV)
-				fill.Size = UDim2.new((value - minV) / (maxV - minV), 0, 1, 0)
-				valLbl.Text = tostring(math.floor(value * 100 + 0.5) / 100)
-				if type(sldConfig.Callback) == "function" then
-					local ok, err = pcall(sldConfig.Callback, value)
-					if not ok then warn("[Library] Slider callback error: " .. tostring(err)) end
-				end
-			end
-
-			hit.InputBegan:Connect(function(input)
-				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-					dragging = true
-					applyFromMouse(UserInputService:GetMouseLocation().X)
-				end
-			end)
-
-			UserInputService.InputChanged:Connect(function(input)
-				if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-					applyFromMouse(UserInputService:GetMouseLocation().X)
-				end
-			end)
-
-			UserInputService.InputEnded:Connect(function(input)
-				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-					dragging = false
-				end
-			end)
-
-			table.insert(self.Items, row)
-			return {
-				Frame = row,
-				Set = function(v)
-					value = math.clamp(v, minV, maxV)
-					fill.Size = UDim2.new((value - minV) / (maxV - minV), 0, 1, 0)
-					valLbl.Text = tostring(math.floor(value * 100 + 0.5) / 100)
-				end,
-				Get = function() return value end
-			}
-		end
-
-		function PanelInfo:AddTextbox(tbConfig)
-			tbConfig = tbConfig or {}
-			local row = Instance.new("Frame")
-			row.Size = UDim2.new(1, 0, 0, 32)
-			row.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
-			row.BorderSizePixel = 0
-			row.Parent = PanelScroll
-
-			local rc = Instance.new("UICorner")
-			rc.CornerRadius = UDim.new(0, 6)
-			rc.Parent = row
-
-			local box = Instance.new("TextBox")
-			box.Size = UDim2.new(1, -20, 1, -8)
-			box.Position = UDim2.new(0, 10, 0, 4)
-			box.BackgroundTransparency = 1
-			box.Font = Enum.Font.Gotham
-			box.Text = tbConfig.Default or ""
-			box.PlaceholderText = tbConfig.Placeholder or ""
-			box.TextSize = 12
-			box.TextColor3 = Color3.fromRGB(230, 230, 235)
-			box.PlaceholderColor3 = Color3.fromRGB(120, 120, 130)
-			box.TextXAlignment = Enum.TextXAlignment.Left
-			box.ClearTextOnFocus = false
-			box.Parent = row
-
-			box.FocusLost:Connect(function()
-				if type(tbConfig.Callback) == "function" then
-					local ok, err = pcall(tbConfig.Callback, box.Text)
-					if not ok then warn("[Library] Textbox callback error: " .. tostring(err)) end
-				end
-			end)
-
-			table.insert(self.Items, row)
-			return box
-		end
-
-		function PanelInfo:Show()
-			hideAllContent()
-			self.Frame.Visible = true
-			self.IsVisible = true
-		end
-
-		function PanelInfo:Hide()
-			self.Frame.Visible = false
-			self.IsVisible = false
-		end
-
-		function PanelInfo:Toggle()
-			if self.IsVisible then self:Hide() else self:Show() end
+			btn.Parent = parentPage
+			Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+			btn.MouseButton1Click:Connect(function() if cfg.Callback then cfg.Callback() end end)
 		end
 
 		table.insert(WindowObj.Panels, PanelInfo)
 		return PanelInfo
-	end
-
-	-- >>> NEW: удобный алиас
-	WindowObj.CreatePage = WindowObj.CreatePanel
-
-	function WindowObj:CreateSection(secConfig)
-		local title = secConfig.Title or "Section"
-		local rawIcon = secConfig.Icon
-		local iconAsset = resolveAsset(rawIcon)
-
-		local SectionFrame = Instance.new("Frame")
-		SectionFrame.Name = title .. "_Section"
-		SectionFrame.Size = UDim2.new(1, 0, 0, 32)
-		SectionFrame.BackgroundTransparency = 1
-		SectionFrame.ClipsDescendants = true
-		SectionFrame.Parent = NavScroll
-
-		local HeaderBtn = Instance.new("TextButton")
-		HeaderBtn.Name = "HeaderBtn"
-		HeaderBtn.Size = UDim2.new(1, 0, 0, 32)
-		HeaderBtn.BackgroundTransparency = 1
-		HeaderBtn.Text = ""
-		HeaderBtn.AutoButtonColor = false
-		HeaderBtn.Parent = SectionFrame
-
-		local textStart = 10
-		local IconImg = nil
-		if iconAsset and iconAsset ~= "" then
-			IconImg = Instance.new("ImageLabel")
-			IconImg.Name = "TitleIcon"
-			IconImg.Size = UDim2.new(0, 16, 0, 16)
-			IconImg.Position = UDim2.new(0, 8, 0.5, -8)
-			IconImg.BackgroundTransparency = 1
-			IconImg.Image = iconAsset
-			IconImg.ImageColor3 = Color3.fromRGB(150, 150, 160)
-			IconImg.Parent = HeaderBtn
-			registerFade(IconImg, "ImageTransparency", 0)
-			textStart = 30
-		end
-
-		local TitleLabel = Instance.new("TextLabel")
-		TitleLabel.Name = "TitleLabel"
-		TitleLabel.Size = UDim2.new(1, -(textStart + 28), 1, 0)
-		TitleLabel.Position = UDim2.new(0, textStart, 0, 0)
-		TitleLabel.BackgroundTransparency = 1
-		TitleLabel.Font = Enum.Font.GothamMedium
-		TitleLabel.Text = title
-		TitleLabel.TextSize = 13
-		TitleLabel.TextColor3 = Color3.fromRGB(150, 150, 160)
-		TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-		TitleLabel.Parent = HeaderBtn
-		registerFade(TitleLabel, "TextTransparency", 0)
-
-		local ArrowImg = Instance.new("ImageLabel")
-		ArrowImg.Name = "Arrow"
-		ArrowImg.Size = UDim2.new(0, 14, 0, 14)
-		ArrowImg.Position = UDim2.new(1, -22, 0.5, -7)
-		ArrowImg.BackgroundTransparency = 1
-		ArrowImg.Image = "rbxassetid://10709790948"
-		ArrowImg.ImageColor3 = Color3.fromRGB(120, 120, 135)
-		ArrowImg.Rotation = -90
-		ArrowImg.Parent = HeaderBtn
-		registerFade(ArrowImg, "ImageTransparency", 0)
-
-		local SubContent = Instance.new("Frame")
-		SubContent.Name = "SubContent"
-		SubContent.Size = UDim2.new(1, 0, 0, 0)
-		SubContent.Position = UDim2.new(0, 0, 0, 34)
-		SubContent.BackgroundTransparency = 1
-		SubContent.Parent = SectionFrame
-
-		local TreeLine = Instance.new("Frame")
-		TreeLine.Name = "TreeLine"
-		TreeLine.Size = UDim2.new(0, 1, 0, 0)
-		TreeLine.Position = UDim2.new(0, 16, 0, 0)
-		TreeLine.BackgroundColor3 = Color3.fromRGB(50, 52, 65)
-		TreeLine.BorderSizePixel = 0
-		TreeLine.Parent = SubContent
-		registerFade(TreeLine, "BackgroundTransparency", 0)
-
-		local ActiveTreeLine = Instance.new("Frame")
-		ActiveTreeLine.Name = "ActiveTreeLine"
-		ActiveTreeLine.Size = UDim2.new(0, 1, 0, 0)
-		ActiveTreeLine.Position = UDim2.new(0, 16, 0, 0)
-		ActiveTreeLine.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-		ActiveTreeLine.BorderSizePixel = 0
-		ActiveTreeLine.ZIndex = 2
-		ActiveTreeLine.Parent = SubContent
-		registerFade(ActiveTreeLine, "BackgroundTransparency", 0)
-
-		local SubItems = Instance.new("Frame")
-		SubItems.Name = "SubItems"
-		SubItems.Size = UDim2.new(1, 0, 1, 0)
-		SubItems.BackgroundTransparency = 1
-		SubItems.Parent = SubContent
-
-		local SubLayout = Instance.new("UIListLayout")
-		SubLayout.SortOrder = Enum.SortOrder.LayoutOrder
-		SubLayout.Padding = UDim.new(0, 4)
-		SubLayout.Parent = SubItems
-
-		local SectionObj = {
-			IsOpen = false,
-			Items = {},
-			HasActiveChild = false,
-			TreeLine = TreeLine,
-			ActiveTreeLine = ActiveTreeLine,
-			ArrowImg = ArrowImg,
-			HeaderBtn = HeaderBtn,
-			TitleLabel = TitleLabel,
-			IconImg = IconImg
-		}
-
-		function SectionObj:UpdateVisuals()
-			if self.HasActiveChild then
-				TweenService:Create(TitleLabel, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
-				TweenService:Create(ArrowImg, TweenInfo.new(0.2), {ImageColor3 = Color3.fromRGB(255, 255, 255)}):Play()
-				if IconImg then
-					TweenService:Create(IconImg, TweenInfo.new(0.2), {ImageColor3 = Color3.fromRGB(255, 255, 255)}):Play()
-				end
-			else
-				TweenService:Create(TitleLabel, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(150, 150, 160)}):Play()
-				TweenService:Create(ArrowImg, TweenInfo.new(0.2), {ImageColor3 = Color3.fromRGB(120, 120, 135)}):Play()
-				TweenService:Create(ActiveTreeLine, TweenInfo.new(0.2), {Size = UDim2.new(0, 1, 0, 0)}):Play()
-				if IconImg then
-					TweenService:Create(IconImg, TweenInfo.new(0.2), {ImageColor3 = Color3.fromRGB(150, 150, 160)}):Play()
-				end
-			end
-		end
-
-		HeaderBtn.MouseEnter:Connect(function()
-			if not SectionObj.HasActiveChild then
-				TweenService:Create(TitleLabel, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(220, 220, 230)}):Play()
-				TweenService:Create(ArrowImg, TweenInfo.new(0.2), {ImageColor3 = Color3.fromRGB(200, 200, 215)}):Play()
-				if IconImg then
-					TweenService:Create(IconImg, TweenInfo.new(0.2), {ImageColor3 = Color3.fromRGB(220, 220, 230)}):Play()
-				end
-			end
-		end)
-
-		HeaderBtn.MouseLeave:Connect(function()
-			SectionObj:UpdateVisuals()
-		end)
-
-		local function recalcDimensions()
-			local count = #SectionObj.Items
-			local subH = count * 26 + math.max(0, count - 1) * 4
-			SubContent.Size = UDim2.new(1, 0, 0, subH)
-			TreeLine.Size = UDim2.new(0, 1, 0, math.max(0, subH - 13))
-
-			if SectionObj.IsOpen then
-				SectionFrame.Size = UDim2.new(1, 0, 0, 34 + subH + 4)
-			else
-				SectionFrame.Size = UDim2.new(1, 0, 0, 32)
-			end
-		end
-
-		function SectionObj:Toggle()
-			self.IsOpen = not self.IsOpen
-			local rot = self.IsOpen and 0 or -90
-			local count = #self.Items
-			local subH = count * 26 + math.max(0, count - 1) * 4
-			local totalH = self.IsOpen and (34 + subH + 4) or 32
-
-			TweenService:Create(ArrowImg, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Rotation = rot}):Play()
-			TweenService:Create(SectionFrame, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-				Size = UDim2.new(1, 0, 0, totalH)
-			}):Play()
-		end
-
-		HeaderBtn.MouseButton1Click:Connect(function()
-			SectionObj:Toggle()
-		end)
-
-		function SectionObj:CreateItem(itemConfig)
-			local itemTitle = itemConfig.Title or "SubItem"
-			local itemAsset = resolveAsset(itemConfig.Icon)
-
-			local itemIndex = #SectionObj.Items + 1
-
-			local ItemWrapper = Instance.new("Frame")
-			ItemWrapper.Name = itemTitle .. "_Wrapper"
-			ItemWrapper.Size = UDim2.new(1, 0, 0, 26)
-			ItemWrapper.BackgroundTransparency = 1
-			ItemWrapper.Parent = SubItems
-
-			local Branch = Instance.new("Frame")
-			Branch.Name = "Branch"
-			Branch.Size = UDim2.new(0, 12, 0, 1)
-			Branch.Position = UDim2.new(0, 16, 0.5, 0)
-			Branch.BackgroundColor3 = Color3.fromRGB(50, 52, 65)
-			Branch.BorderSizePixel = 0
-			Branch.Parent = ItemWrapper
-			registerFade(Branch, "BackgroundTransparency", 0)
-
-			local ItemBtn = Instance.new("TextButton")
-			ItemBtn.Name = "Btn"
-			ItemBtn.Size = UDim2.new(1, -30, 1, 0)
-			ItemBtn.Position = UDim2.new(0, 28, 0, 0)
-			ItemBtn.BackgroundTransparency = 1
-			ItemBtn.Text = ""
-			ItemBtn.AutoButtonColor = false
-			ItemBtn.Parent = ItemWrapper
-
-			local subOffset = 6
-			local SubIconImg = nil
-			if itemAsset and itemAsset ~= "" then
-				SubIconImg = Instance.new("ImageLabel")
-				SubIconImg.Name = "SubIcon"
-				SubIconImg.Size = UDim2.new(0, 14, 0, 14)
-				SubIconImg.Position = UDim2.new(0, 4, 0.5, -7)
-				SubIconImg.BackgroundTransparency = 1
-				SubIconImg.Image = itemAsset
-				SubIconImg.ImageColor3 = Color3.fromRGB(130, 135, 145)
-				SubIconImg.Parent = ItemBtn
-				registerFade(SubIconImg, "ImageTransparency", 0)
-				subOffset = 22
-			end
-
-			local SubLabel = Instance.new("TextLabel")
-			SubLabel.Name = "SubLabel"
-			SubLabel.Size = UDim2.new(1, -subOffset, 1, 0)
-			SubLabel.Position = UDim2.new(0, subOffset, 0, 0)
-			SubLabel.BackgroundTransparency = 1
-			SubLabel.Font = Enum.Font.Gotham
-			SubLabel.Text = itemTitle
-			SubLabel.TextSize = 12
-			SubLabel.TextColor3 = Color3.fromRGB(130, 135, 145)
-			SubLabel.TextXAlignment = Enum.TextXAlignment.Left
-			SubLabel.Parent = ItemBtn
-			registerFade(SubLabel, "TextTransparency", 0)
-
-			local Page = Instance.new("ScrollingFrame")
-			Page.Name = itemTitle .. "_Page"
-			Page.Size = UDim2.new(1, 0, 1, 0)
-			Page.BackgroundTransparency = 1
-			Page.BorderSizePixel = 0
-			Page.ScrollBarThickness = 2
-			Page.ScrollBarImageColor3 = Color3.fromRGB(50, 50, 65)
-			Page.Visible = false
-			Page.Parent = ContentContainer -- остаётся, но скрывается при показе Panel
-
-			local TabInfo = {
-				Btn = ItemBtn,
-				Label = SubLabel,
-				Branch = Branch,
-				Icon = SubIconImg,
-				Page = Page,
-				ParentSection = SectionObj,
-				Index = itemIndex,
-				IsSelected = false
-			}
-
-			ItemBtn.MouseEnter:Connect(function()
-				if not TabInfo.IsSelected then
-					TweenService:Create(SubLabel, TweenInfo.new(0.18), {TextColor3 = Color3.fromRGB(210, 210, 220)}):Play()
-					TweenService:Create(Branch, TweenInfo.new(0.18), {BackgroundColor3 = Color3.fromRGB(200, 200, 215)}):Play()
-					if SubIconImg then
-						TweenService:Create(SubIconImg, TweenInfo.new(0.18), {ImageColor3 = Color3.fromRGB(210, 210, 220)}):Play()
-					end
-				end
-			end)
-
-			ItemBtn.MouseLeave:Connect(function()
-				if not TabInfo.IsSelected then
-					TweenService:Create(SubLabel, TweenInfo.new(0.18), {TextColor3 = Color3.fromRGB(130, 135, 145)}):Play()
-					TweenService:Create(Branch, TweenInfo.new(0.18), {BackgroundColor3 = Color3.fromRGB(50, 52, 65)}):Play()
-					if SubIconImg then
-						TweenService:Create(SubIconImg, TweenInfo.new(0.18), {ImageColor3 = Color3.fromRGB(130, 135, 145)}):Play()
-					end
-				end
-			end)
-
-			local function selectTab()
-				-- >>> NEW: скрыть панели перед выбором таба
-				for _, panel in ipairs(WindowObj.Panels) do
-					panel.Frame.Visible = false
-					panel.IsVisible = false
-				end
-
-				for _, tab in ipairs(WindowObj.Tabs) do
-					tab.IsSelected = false
-					tab.Page.Visible = false
-					TweenService:Create(tab.Label, TweenInfo.new(0.18), {TextColor3 = Color3.fromRGB(130, 135, 145)}):Play()
-					TweenService:Create(tab.Branch, TweenInfo.new(0.18), {BackgroundColor3 = Color3.fromRGB(50, 52, 65)}):Play()
-					if tab.Icon then
-						TweenService:Create(tab.Icon, TweenInfo.new(0.18), {ImageColor3 = Color3.fromRGB(130, 135, 145)}):Play()
-					end
-					tab.ParentSection.HasActiveChild = false
-					tab.ParentSection:UpdateVisuals()
-				end
-
-				TabInfo.IsSelected = true
-				Page.Visible = true
-
-				TweenService:Create(SubLabel, TweenInfo.new(0.18), {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
-				TweenService:Create(Branch, TweenInfo.new(0.18), {BackgroundColor3 = Color3.fromRGB(255, 255, 255)}):Play()
-				if SubIconImg then
-					TweenService:Create(SubIconImg, TweenInfo.new(0.18), {ImageColor3 = Color3.fromRGB(255, 255, 255)}):Play()
-				end
-
-				local activeHeight = (TabInfo.Index - 1) * (26 + 4) + 13
-				TweenService:Create(ActiveTreeLine, TweenInfo.new(0.2), {Size = UDim2.new(0, 1, 0, activeHeight)}):Play()
-
-				SectionObj.HasActiveChild = true
-				SectionObj:UpdateVisuals()
-
-				if not SectionObj.IsOpen then
-					SectionObj:Toggle()
-				end
-			end
-
-			ItemBtn.MouseButton1Click:Connect(selectTab)
-
-			-- >>> NEW: методы для программного управления
-			TabInfo.Select = selectTab
-			TabInfo.Show = selectTab
-			TabInfo.Hide = function()
-				TabInfo.IsSelected = false
-				Page.Visible = false
-			end
-
-			table.insert(SectionObj.Items, TabInfo)
-			table.insert(WindowObj.Tabs, TabInfo)
-
-			recalcDimensions()
-			return Page
-		end
-
-		table.insert(WindowObj.Sections, SectionObj)
-		return SectionObj
 	end
 
 	return WindowObj
